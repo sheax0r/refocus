@@ -64,6 +64,7 @@ function doFindAndCountAll(reqResNext, props, opts) {
 function doFindAll(reqResNext, props, opts) {
   u.getScopedModel(props, opts.attributes).findAll(opts)
   .then((o) => {
+    console.log('find all response count' + o.length);
     reqResNext.res.set(COUNT_HEADER_NAME, o.length);
     const retval = o.map((row) => {
       if (props.modelName === 'Lens') {

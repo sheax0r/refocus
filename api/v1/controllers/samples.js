@@ -10,7 +10,7 @@
  * api/v1/controllers/samples.js
  */
 'use strict';
-
+const dbSample = require('../../../db/index').Sample;
 const helper = require('../helpers/nouns/samples');
 const doDelete = require('../helpers/verbs/doDelete');
 const doFind = require('../helpers/verbs/doFind');
@@ -48,6 +48,24 @@ module.exports = {
    */
   findSamples(req, res, next) {
     doFind(req, res, next, helper);
+  },
+  
+  /**
+   * GET /samples/{key}
+   *
+   * Finds zero or more samples and sends them back in the response.
+   *
+   * @param {IncomingMessage} req - The request object
+   * @param {ServerResponse} res - The response object
+   * @param {Function} next - The next middleware function in the stack
+   */
+  findSamplesStartingWithaKey(req, res, next) {
+    dbSample.getSampleNameLike()
+    .then((o) => {
+      console.log('object length' + o.length);
+      return res.status(httpStatus.OK).json(u.responsify(o, helper, req.method));
+    })
+    .catch((err) => u.handleError(next, err, helper.modelName));
   },
 
   /**

@@ -170,6 +170,13 @@ module.exports = function subject(seq, dataTypes) {
             },
           };
         });
+        Subject.addScope('iLikeScope', {
+          where: {
+            absolutePath: {
+              $iLike: 'Salesforce.SFDC_Core%',
+            },
+          },
+        });
         Subject.addScope('hierarchy', {
           where: {
             isPublished: true,
@@ -196,6 +203,21 @@ module.exports = function subject(seq, dataTypes) {
           ],
         });
       },
+       /**
+       * Invalidates samples which were last updated before the "timeout"
+       * specified by the aspect.
+       *
+       * @param {Date} now - For testing, pass in a Date object to represent
+       *  the current time
+       * @returns {Integer} number of samples timed out
+       */
+      getSubjectNameLike() {
+        return new seq.Promise((resolve, reject) => {
+          Subject.scope('iLikeScope').findAll()
+          .then((samp) => resolve(samp))
+          .catch((err) => reject(err));
+        });
+      }, // getSubjectNameLike
     },
     hooks: {
       /**

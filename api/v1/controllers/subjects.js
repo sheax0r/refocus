@@ -10,7 +10,7 @@
  * api/v1/controllers/subjects.js
  */
 'use strict';
-
+const dbSubject = require('../../../db/index').Subject;
 const helper = require('../helpers/nouns/subjects');
 const doDelete = require('../helpers/verbs/doDelete');
 const doFind = require('../helpers/verbs/doFind');
@@ -85,6 +85,22 @@ module.exports = {
    */
   getSubject(req, res, next) {
     doGet(req, res, next, helper);
+  },
+  /**
+   * GET /subjects/{key}
+   *
+   * Finds zero or more samples and sends them back in the response.
+   *
+   * @param {IncomingMessage} req - The request object
+   * @param {ServerResponse} res - The response object
+   * @param {Function} next - The next middleware function in the stack
+   */
+  findSubjectsStartingWithaKey(req, res, next) {
+    dbSubject.getSubjectNameLike()
+    .then((o) => {
+      return res.status(httpStatus.OK).json(u.responsify(o, helper, req.method));
+    })
+    .catch((err) => u.handleError(next, err, helper.modelName));
   },
 
   /**

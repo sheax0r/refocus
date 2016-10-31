@@ -41,6 +41,8 @@ function start() { // eslint-disable-line max-statements
   const enforcesSSL = require('express-enforces-ssl');
 
   const app = express();
+  app.use(compress());
+
   const httpServer = require('http').Server(app);
   const io = require('socket.io')(httpServer);
   const socketIOSetup = require('./realtime/setupSocketIO');
@@ -66,6 +68,7 @@ function start() { // eslint-disable-line max-statements
   const isDevelopment = (process.env.NODE_ENV === 'development');
   const PORT = process.env.PORT || conf.port;
   app.set('port', PORT);
+
 
   /*
    * If http is disabled, if a GET request comes in over http, automatically
@@ -112,11 +115,10 @@ function start() { // eslint-disable-line max-statements
     .readFileSync(conf.api.swagger.doc, ENCODING);
   const swaggerDoc = yaml.safeLoad(swaggerFile);
   swaggerTools.initializeMiddleware(swaggerDoc, (mw) => {
-    app.use('/static', express.static(path.join(__dirname, 'public')));
+
 
     // Compress(gzip) all the responses
-    app.use(compress());
-
+    app.use('/static', express.static(path.join(__dirname, 'public')));
     // Set the X-XSS-Protection HTTP header as a basic protection against XSS
     app.use(helmet.xssFilter());
 

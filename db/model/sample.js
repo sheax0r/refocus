@@ -154,6 +154,13 @@ module.exports = function sample(seq, dataTypes) {
             },
           ],
         });
+        Sample.addScope('iLikeScope', {
+          where: {
+            name: {
+              $iLike: 'Salesforce.SFDC_Core%',
+            },
+          },
+        });
       },
 
       /**
@@ -210,6 +217,21 @@ module.exports = function sample(seq, dataTypes) {
         return seq.Promise.all(promises);
       }, // bulkUpsertByName
 
+      /**
+       * Invalidates samples which were last updated before the "timeout"
+       * specified by the aspect.
+       *
+       * @param {Date} now - For testing, pass in a Date object to represent
+       *  the current time
+       * @returns {Integer} number of samples timed out
+       */
+      getSampleNameLike() {
+        return new seq.Promise((resolve, reject) => {
+          Sample.scope('iLikeScope').findAll()
+          .then((samp) => resolve(samp))
+          .catch((err) => reject(err));
+        });
+      }, // doTimeout
       /**
        * Invalidates samples which were last updated before the "timeout"
        * specified by the aspect.

@@ -2561,7 +2561,46 @@ paths:
           $ref: "#/responses/404"
         default:
           $ref: "#/responses/genericError"
-
+# ---------------------------------------------------------------------------
+  /samples/{key}/hierarchy:
+    x-swagger-router-controller: samples
+    get:
+      security:
+        - jwt: []
+      summary: Find a sample that starts with the key
+      tags: [ samples ]
+      description: >-
+        Find a sample or samples. You may query using field filters with
+        asterisk (*) wildcards. You may also optionally specify sort, limit,
+        offset, and a list of fields to include in the response. If the Refocus configuration parameter `useAccessToken` is set to `true`, you must include an `Authorization` request header with your [JSON Web Token](https://tools.ietf.org/html/rfc7519) (JWT) as the value. You can get a token using `POST /v1/register` or `POST /v1/token`.
+      externalDocs:
+        description: >-
+          GET /samples
+        url: http://focus.salesforce.com/docs/api/samples
+      operationId: findSamplesStartingWithaKey
+      parameters:
+            -
+              name: key
+              in: path
+              description: >-
+                The id or name of the sample to delete.
+              required: true
+              type: string
+      responses:
+        200:
+          description: >-
+            Success, returns a list of samples.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/SamplesResponse"
+        400:
+          $ref: "#/responses/400"
+        401:
+          $ref: "#/responses/401"
+        default:
+              $ref: "#/responses/genericError"
+   
   # ---------------------------------------------------------------------------
   /samples/{key}:
     x-swagger-router-controller: samples
@@ -3576,8 +3615,49 @@ paths:
           $ref: "#/responses/404"
         default:
           $ref: "#/responses/genericError"
+  # ---------------------------------------------------------------------------
+
+  /subjects/{key}/newhierarchy:
+    x-swagger-router-controller: subjects
+    get:
+      security:
+        - jwt: []
+      summary: Find a subject that starts with the key
+      tags: [ subjects ]
+      description: >-
+        Find a sample or samples. You may query using field filters with
+        asterisk (*) wildcards. You may also optionally specify sort, limit,
+        offset, and a list of fields to include in the response. If the Refocus configuration parameter `useAccessToken` is set to `true`, you must include an `Authorization` request header with your [JSON Web Token](https://tools.ietf.org/html/rfc7519) (JWT) as the value. You can get a token using `POST /v1/register` or `POST /v1/token`.
+      externalDocs:
+        description: >-
+          GET /samples
+        url: http://focus.salesforce.com/docs/api/samples
+      operationId: findSubjectsStartingWithaKey
+      parameters:
+            -
+              name: key
+              in: path
+              description: >-
+                The id or name of the sample to delete.
+              required: true
+              type: string
+      responses:
+        200:
+          description: >-
+            Success, returns a list of samples.
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/SubjectsResponse"
+        400:
+          $ref: "#/responses/400"
+        401:
+          $ref: "#/responses/401"
+        default:
+              $ref: "#/responses/genericError"
 
   # ---------------------------------------------------------------------------
+  
   /subjects/{key}/hierarchy:
     x-swagger-router-controller: subjects
     delete:
