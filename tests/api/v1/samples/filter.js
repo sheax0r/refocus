@@ -24,6 +24,8 @@ const expect = require('chai').expect;
 describe.only(`api: FILTER ${path}`, () => {
   let sampleId;
   let token;
+  const SPECIAL_INT = 3;
+  const MESSAGE_CODE_1 = '12345';
 
   before((done) => {
     tu.createToken()
@@ -34,88 +36,133 @@ describe.only(`api: FILTER ${path}`, () => {
     .catch((err) => done(err));
   });
 
-  function getAspectWithName(name) {
-    return {
+  /**
+   * sets up an object with aspect id, subject id
+   * @param {String} aspectName The name of the aspect
+   * @param {String} subjectName The name of the subject
+   * @returns {Object} contains aspect id, subject id
+   */
+  function doSetup(aspectName, subjectName) {
+    const aspectToCreate = {
       isPublished: true,
-      name,
+      name: `${tu.namePrefix + aspectName}`,
       timeout: '30s',
     };
-  }
 
-  function getSubjectWithName(name) {
-    return {
+    const subjectToCreate = {
       isPublished: true,
-      name,
+      name: `${tu.namePrefix + subjectName}`,
     };
-  }
 
-  function makeSample(aspectName, subjectName) {
-    const aspectToCreate = getAspectWithName(aspectName);
-    const subjectToCreate = getSubjectWithName(subjectName);
-
-    const obj = {};
-    tu.db.Aspect.create(aspectToCreate)
-    .then((a) => {
-      obj.aspectId = a.id;
-      return tu.db.Subject.create(subjectToCreate);
-    })
-    .then((s) => {
-      obj.subjectId = s.id;
-      console.log(obj)
-      // set sample props here. samp contains aspectId, subjectId
-      return Sample.create(obj);
-    })
-    .then((samp) => {
-      console.log(samp)
-      return samp
-    })
-    .catch((err) => {
-      throw new Error(err)
+    return new tu.db.Sequelize.Promise((resolve, reject) => {
+      const samp = {};
+      tu.db.Aspect.create(aspectToCreate)
+      .then((a) => {
+        samp.aspectId = a.id;
+        return tu.db.Subject.create(subjectToCreate);
+      })
+      .then((s) => {
+        samp.subjectId = s.id;
+        resolve(samp);
+      })
+      .catch((err) => reject(err));
     });
   }
 
   before((done) => {
-    makeSample('COFEE', 'TEA')
-    .then(() => makeSample('COFEE', 'GELATO'))
-    .then(() => done())
+    doSetup('COFFEE', 'POTATO')
+    .then((samp) => {
+      return Sample.create(samp);
+    })
+    .then(() => doSetup('COLUMBIA', 'GELATO'))
+    .then((samp) => {
+      return Sample.create(samp);
+    })
+    .then(() => doSetup('UNIQUE', 'SPECIAL'))
+    .then((samp) => {
+      samp.value = SPECIAL_INT; // different from default
+      samp.messageCode = MESSAGE_CODE_1; // the only one iwith with messageCode
+      return Sample.create(samp);
+    })
+    .then((samp) => done())
     .catch((err) => done(err));
   });
 
   after(u.forceDelete);
   after(tu.forceDeleteUser);
 
-  it('filter name matches exactly', (done) => {
-    api.get(path + '?name=COFEE|TEA')
+  it('filter by name matches exactly', (done) => {
+    api.get(path + '?name=UNIQUE|SPECIAL')
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
     .expect((res) => {
       expect(res.body.length).to.equal(1);
       // console.log(res.body)
     })
-    .end((err /* , res */) => {
-      if (err) {
-        return done(err);
-      }
-
-      done();
-    });
+    .end((err /* , res */) => done(err));
   });
 
-  it('filtering by name matches exactly.');
-
   //  /v1/samples?name=Foo*
-  it('filtering by name gets all names starting with Foo.');
+  it('filter by name gets all names starting with CO.', (done) => {
+    api.get(path + '?name=CO*')
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(2);
+      // console.log(res.body)
+    })
+    .end((err /* , res */) => done(err));
+  });
 
   // /v1/samples?name=*|Bar
-  it('filtering by name gets all names ending with Bar.');
+  it('filter by name gets all names ending with TO.', (done) => {
+    api.get(path + '?name=*|TO')
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      res.body.map((samp) => {
+        console.log(samp.status)
+      })
+      expect(res.body.length).to.equal(2);
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-  it('filtering by status');
+  //
+  it('filter by status', (done) => {
+    api.get(path + '?status=Warning')
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(1);
+      expect(res.body.status).to.equal(constants.statuses.Warning);
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-  // need update sample, so its previousStatus differs from status
-  it('filtering by previousStatus');
+  // need update value, so its previousStatus differs from status
+  // would update value here affect filter by value, and filter by state?
+  it('filter by previousStatus');
 
-  it('filtering by value');
+  it('filter by value', (done) => {
+    api.get(path + '?value=' + SPECIAL_INT)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(1);
+      expect(res.body.value).to.equal(SPECIAL_INT);
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-  it('filtering by messageCode.');
-
+  it('filter by messageCode.', (done) => {
+    api.get(path + '?messageCode=' + SPECIAL_INT)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(1);
+      expect(res.body.messageCode).to.equal(MESSAGE_CODE_1);
+    })
+    .end((err /* , res */) => done(err));
+  });
 });
