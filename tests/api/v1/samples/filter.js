@@ -12,18 +12,16 @@
 
 'use strict';
 
-const expect = require('chai').expect;
 const supertest = require('supertest');
 const api = supertest(require('../../../../index').app);
+const constants = require('../../../../api/v1/constants');
 const tu = require('../../../testUtils');
 const u = require('./utils');
-const constants = require('../../../../api/v1/constants');
-const Aspect = tu.db.Aspect;
-const Subject = tu.db.Subject;
 const Sample = tu.db.Sample;
-const path = '/v1/samples/upsert/bulk';
+const path = '/v1/samples';
 
-describe.only('api: POST ' + path, () => {
+describe.only(`api: FILTER ${path}`, () => {
+  let sampleId;
   let token;
 
   before((done) => {
@@ -36,49 +34,65 @@ describe.only('api: POST ' + path, () => {
   });
 
   before((done) => {
-    Aspect.create({
+    // TODO: move them to funcitons with name as input
+    const aspectToCreate = {
       isPublished: true,
-      name: `${tu.namePrefix}Aspect1`,
+      name: `${tu.namePrefix}TEST_ASPECT`,
       timeout: '30s',
-      valueType: 'NUMERIC',
-      criticalRange: [0, 1],
+    };
+
+    const subjectToCreate = {
+      isPublished: true,
+      name: `${tu.namePrefix}TEST_SUBJECT`,
+    };
+
+    new tu.db.Sequelize.Promise((resolve, reject) => {
+      const samp = { value: '1' };
+      tu.db.Aspect.create(aspectToCreate)
+      .then((a) => {
+        samp.aspectId = a.id;
+        return tu.db.Subject.create(subjectToCreate);
+      })
+      .then((s) => {
+        samp.subjectId = s.id;
+        resolve(samp);
+      })
+      .catch((err) => reject(err));
     })
-    .then(() => Aspect.create({
-      isPublished: true,
-      name: `${tu.namePrefix}Aspect2`,
-      timeout: '10m',
-      valueType: 'BOOLEAN',
-      okRange: [10, 100],
-    }))
-    .then(() => Subject.create({
-      isPublished: true,
-      name: `${tu.namePrefix}Subject`,
-    }))
-    .then(() => api.post(path)
-      .set('Authorization', token)
-      .send([
-        {
-          name: `${tu.namePrefix}Subject|${tu.namePrefix}Aspect1`,
-          value: '2',
-        }, {
-          name: `${tu.namePrefix}Subject|${tu.namePrefix}Aspect2`,
-          value: '4',
-        },
-      ])
-      .expect(200)
-    )
-    .then(() => done())
+    .then((samp) => {
+      // set sample props here
+      console.log(samp)
+      return Sample.create(samp);
+    })
+    .then((samp) => {
+      sampleId = samp.id;
+      done();
+    })
     .catch((err) => done(err));
   });
 
   after(u.forceDelete);
   after(tu.forceDeleteUser);
 
-  it('all succeed', (done) => {
+  it('basic get', (done) => {
+    api.get(path)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      if (tu.gotExpectedLength(res.body, 0)) {
+        throw new Error('expecting sample');
+      }
+
+      // console.log(res.body)
+    })
+    .end((err /* , res */) => {
+      if (err) {
+        return done(err);
+      }
 
       done();
+    });
   });
-
 
   it('filtering by name matches exactly.');
 
