@@ -21,10 +21,10 @@ const Sample = tu.db.Sample;
 const path = '/v1/samples';
 const expect = require('chai').expect;
 
-describe.only(`api: FILTER ${path}`, () => {
+describe(`api: FILTER ${path}`, () => {
   let sampleId;
   let token;
-  const SPECIAL_INT = 3;
+  const SPECIAL_INT = '3';
   const MESSAGE_CODE_1 = '12345';
 
   before((done) => {
@@ -129,7 +129,7 @@ describe.only(`api: FILTER ${path}`, () => {
   });
 
   //
-  it('filter by status', (done) => {
+  it.only('filter by status', (done) => {
     api.get(path + '?status=Warning')
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
@@ -150,18 +150,18 @@ describe.only(`api: FILTER ${path}`, () => {
     .expect(constants.httpStatus.OK)
     .expect((res) => {
       expect(res.body.length).to.equal(1);
-      expect(res.body.value).to.equal(SPECIAL_INT);
+      expect(res.body[0].value).to.equal(SPECIAL_INT);
     })
     .end((err /* , res */) => done(err));
   });
 
   it('filter by messageCode.', (done) => {
-    api.get(path + '?messageCode=' + SPECIAL_INT)
+    api.get(path + '?messageCode=' + MESSAGE_CODE_1)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
     .expect((res) => {
       expect(res.body.length).to.equal(1);
-      expect(res.body.messageCode).to.equal(MESSAGE_CODE_1);
+      expect(res.body[0].messageCode).to.equal(MESSAGE_CODE_1);
     })
     .end((err /* , res */) => done(err));
   });
