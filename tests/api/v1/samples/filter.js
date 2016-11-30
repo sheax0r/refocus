@@ -19,6 +19,7 @@ const tu = require('../../../testUtils');
 const u = require('./utils');
 const Sample = tu.db.Sample;
 const path = '/v1/samples';
+const expect = require('chai').expect;
 
 describe.only(`api: FILTER ${path}`, () => {
   let sampleId;
@@ -33,56 +34,62 @@ describe.only(`api: FILTER ${path}`, () => {
     .catch((err) => done(err));
   });
 
-  before((done) => {
-    // TODO: move them to funcitons with name as input
-    const aspectToCreate = {
+  function getAspectWithName(name) {
+    return {
       isPublished: true,
-      name: `${tu.namePrefix}TEST_ASPECT`,
+      name,
       timeout: '30s',
     };
+  }
 
-    const subjectToCreate = {
+  function getSubjectWithName(name) {
+    return {
       isPublished: true,
-      name: `${tu.namePrefix}TEST_SUBJECT`,
+      name,
     };
+  }
 
-    new tu.db.Sequelize.Promise((resolve, reject) => {
-      const samp = { value: '1' };
-      tu.db.Aspect.create(aspectToCreate)
-      .then((a) => {
-        samp.aspectId = a.id;
-        return tu.db.Subject.create(subjectToCreate);
-      })
-      .then((s) => {
-        samp.subjectId = s.id;
-        resolve(samp);
-      })
-      .catch((err) => reject(err));
+  function makeSample(aspectName, subjectName) {
+    const aspectToCreate = getAspectWithName(aspectName);
+    const subjectToCreate = getSubjectWithName(subjectName);
+
+    const obj = {};
+    tu.db.Aspect.create(aspectToCreate)
+    .then((a) => {
+      obj.aspectId = a.id;
+      return tu.db.Subject.create(subjectToCreate);
+    })
+    .then((s) => {
+      obj.subjectId = s.id;
+      console.log(obj)
+      // set sample props here. samp contains aspectId, subjectId
+      return Sample.create(obj);
     })
     .then((samp) => {
-      // set sample props here
       console.log(samp)
-      return Sample.create(samp);
+      return samp
     })
-    .then((samp) => {
-      sampleId = samp.id;
-      done();
-    })
+    .catch((err) => {
+      throw new Error(err)
+    });
+  }
+
+  before((done) => {
+    makeSample('COFEE', 'TEA')
+    .then(() => makeSample('COFEE', 'GELATO'))
+    .then(() => done())
     .catch((err) => done(err));
   });
 
   after(u.forceDelete);
   after(tu.forceDeleteUser);
 
-  it('basic get', (done) => {
-    api.get(path)
+  it('filter name matches exactly', (done) => {
+    api.get(path + '?name=COFEE|TEA')
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
     .expect((res) => {
-      if (tu.gotExpectedLength(res.body, 0)) {
-        throw new Error('expecting sample');
-      }
-
+      expect(res.body.length).to.equal(1);
       // console.log(res.body)
     })
     .end((err /* , res */) => {
