@@ -56,6 +56,13 @@ function toSequelizeWildcards(val) {
  *  case-insensitive string matching
  */
 function toWhereClause(val, props) {
+  // given array, return { $in: array }
+  if (Array.isArray(val) && props.isEnum) {
+    const inClause = {};
+    inClause[constants.SEQ_IN] = val;
+    return inClause;
+  }
+
   if (Array.isArray(val) && props.tagFilterName) {
     const containsClause = {};
     containsClause[constants.SEQ_CONTAINS] = val;
@@ -84,6 +91,7 @@ function toWhereClause(val, props) {
 function toSequelizeWhere(filter, props) {
   const where = {};
   const keys = Object.keys(filter);
+
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     if (filter[key] !== undefined) {
@@ -94,11 +102,30 @@ function toSequelizeWhere(filter, props) {
       const values = [];
 
       /*
+       * If enum filter is enabled and key is an enumerable field
+       * then create an "in"
+       * clause and add it to where clause, e.g.
+       * {
+       *  where: {
+            valueType: { $in: ["PERCENT", "BOOLEAN"] },
+          },
+       * }
+       */
+      if (props.fieldsWithEnum.length &&
+        props.fieldsWithEnum.indexOf(key) > -1) {
+        const enumArr = filter[key];
+        // to use $in instead of $contains in toWhereClause
+        props.isEnum = true;
+        values.push(toWhereClause(enumArr, props));
+        where[key] = values[0];
+      }
+
+      /*
        * If tag filter is enabled and key is "tags", then create a "contains"
        * clause and add it to where clause, e.g.
        * { where : { '$contains': ['tag1', 'tag2'] } }
        */
-      if (props.tagFilterName && key === props.tagFilterName) {
+      else if (props.tagFilterName && key === props.tagFilterName) {
         const tagArr = filter[key];
         values.push(toWhereClause(tagArr, props));
         where[key] = values[0];
