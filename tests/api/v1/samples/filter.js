@@ -21,7 +21,7 @@ const Sample = tu.db.Sample;
 const path = '/v1/samples';
 const expect = require('chai').expect;
 
-describe.only('sample api: FILTER' + path, () => {
+describe('sample api: FILTER' + path, () => {
   let sampleId;
   let token;
   const SPECIAL_INT = '3';

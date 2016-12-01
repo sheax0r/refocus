@@ -18,6 +18,7 @@ const tu = require('../../../testUtils');
 const u = require('./utils');
 const Aspect = tu.db.Aspect;
 const path = '/v1/aspects';
+const expect = require('chai').expect;
 
 describe(`api: GET ${path}`, () => {
   let token;
@@ -65,6 +66,17 @@ describe(`api: GET ${path}`, () => {
 
 
   describe('Single Values: ', () => {
+    it('filter by BOOLEAN returns expected values', (done) => {
+      api.get(path + '?valueType=PERCENT') // BOOLEAN is default
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.be.equal(1);
+        expect(res.body[0].valueType).to.be.equal('PERCENT');
+      })
+      .end((err /* , res */) => done(err));
+    });
+
     it('key used twice in url', (done) => {
       api.get(`${path}?name=${tu.namePrefix}a0&description=foo&name=xyz`)
       .set('Authorization', token)
@@ -102,17 +114,12 @@ describe(`api: GET ${path}`, () => {
       .set('Authorization', token)
       .expect(constants.httpStatus.OK)
       .expect((res) => {
-        if (!tu.gotArrayWithExpectedLength(res.body, 2)) {
-          throw new Error('expecting 2 aspects');
-        }
+        expect(res.body.length).to.be.equal(2);
+        res.body.map((aspect) => {
+          expect(aspect.name.slice(0, 3)).to.equal(tu.namePrefix);
+        });
       })
-      .end((err /* , res */) => {
-        if (err) {
-          return done(err);
-        }
-
-        done();
-      });
+      .end((err /* , res */) => done(err));
     });
 
     it('leading asterisk is treated as "ends with"', (done) => {
@@ -231,17 +238,12 @@ describe(`api: GET ${path}`, () => {
       .set('Authorization', token)
       .expect(constants.httpStatus.OK)
       .expect((res) => {
-        if (!tu.gotArrayWithExpectedLength(res.body, 2)) {
-          throw new Error('expecting 2 aspects');
-        }
+        expect(res.body.length).to.be.equal(2);
+        res.body.map((aspect) => {
+          expect(aspect.name).to.contain('a');
+        });
       })
-      .end((err /* , res */) => {
-        if (err) {
-          return done(err);
-        }
-
-        done();
-      });
+      .end((err /* , res */) => done(err));
     });
   }); // Lists
 });
