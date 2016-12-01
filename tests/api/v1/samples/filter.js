@@ -24,7 +24,9 @@ const expect = require('chai').expect;
 describe('sample api: FILTER' + path, () => {
   let sampleId;
   let token;
+  let SPECIAL_SAMPLE_ID;
   const SPECIAL_INT = '3';
+  const ONE = '1';
   const MESSAGE_CODE_1 = '12345';
 
   before((done) => {
@@ -47,6 +49,8 @@ describe('sample api: FILTER' + path, () => {
       isPublished: true,
       name: `${tu.namePrefix + aspectName}`,
       timeout: '30s',
+      criticalRange: [3, 3],
+      valueType: 'NUMERIC',
     };
 
     const subjectToCreate = {
@@ -84,99 +88,125 @@ describe('sample api: FILTER' + path, () => {
       samp.messageCode = MESSAGE_CODE_1; // the only one iwith with messageCode
       return Sample.create(samp);
     })
-    .then((samp) => done())
+    .then((samp) => {
+      SPECIAL_SAMPLE_ID = samp.id;
+      done();
+    })
     .catch((err) => done(err));
   });
 
   after(u.forceDelete);
   after(tu.forceDeleteUser);
 
-  it('no asterisk is treated as "equals"', (done) => {
-    const NAME = tu.namePrefix + 'COFFEE|' + tu.namePrefix + 'POTATO';
-    api.get(path + '?name=' + NAME)
-    .set('Authorization', token)
-    .expect(constants.httpStatus.OK)
-    .expect((res) => {
-      expect(res.body.length).to.equal(1);
-      expect(res.body[0].name).to.equal(NAME);
-    })
-    .end((err /* , res */) => done(err));
-  });
+  describe('regular tests', () => {
 
-  it('trailing asterisk is treated as "starts with"', (done) => {
-    api.get(path + '?name=' + tu.namePrefix + '*')
-    .set('Authorization', token)
-    .expect(constants.httpStatus.OK)
-    .expect((res) => {
-      expect(res.body.length).to.equal(3);
-      res.body.map((sample) => {
-        expect(sample.name.slice(0, 3)).to.equal(tu.namePrefix);
+    it('no asterisk is treated as "equals"', (done) => {
+      const NAME = tu.namePrefix + 'COFFEE|' + tu.namePrefix + 'POTATO';
+      api.get(path + '?name=' + NAME)
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.equal(1);
+        expect(res.body[0].name).to.equal(NAME);
       })
-    })
-    .end((err /* , res */) => done(err));
+      .end((err /* , res */) => done(err));
+    });
+
+    it('trailing asterisk is treated as "starts with"', (done) => {
+      api.get(path + '?name=' + tu.namePrefix + '*')
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.equal(3);
+        res.body.map((sample) => {
+          expect(sample.name.slice(0, 3)).to.equal(tu.namePrefix);
+        })
+      })
+      .end((err /* , res */) => done(err));
+    });
+
+    it('leading asterisk is treated as "ends with"', (done) => {
+      api.get(path + '?name=*O')
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.equal(2);
+        res.body.map((sample) => {
+          expect(sample.name.slice(-2)).to.equal('TO');
+        });
+      })
+      .end((err /* , res */) => done(err));
+    });
+
+    it('leading and trailing asterisks are treated as "contains"',
+      (done) => {
+      api.get(path + '?name=*ATO*')
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        res.body.map((sample) => {
+          expect(sample.name).to.contain('ATO');
+        });
+      })
+      .end((err /* , res */) => done(err));
+    });
+
+    it('filter by status', (done) => {
+      api.get(path + '?status=Critical')
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.equal(1);
+        expect(res.body[0].status).to.equal('Critical');
+      })
+      .end((err /* , res */) => done(err));
+    });
+
+    it('filter by value', (done) => {
+      api.get(path + '?value=' + SPECIAL_INT)
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.equal(1);
+        expect(res.body[0].value).to.equal(SPECIAL_INT);
+      })
+      .end((err /* , res */) => done(err));
+    });
+
+    it('filter by messageCode.', (done) => {
+      api.get(path + '?messageCode=' + MESSAGE_CODE_1)
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.equal(1);
+        expect(res.body[0].messageCode).to.equal(MESSAGE_CODE_1);
+      })
+      .end((err /* , res */) => done(err));
+    });
   });
 
-  it('leading asterisk is treated as "ends with"', (done) => {
-    api.get(path + '?name=*O')
-    .set('Authorization', token)
-    .expect(constants.httpStatus.OK)
-    .expect((res) => {
-      expect(res.body.length).to.equal(2);
-      res.body.map((sample) => {
-        expect(sample.name.slice(-2)).to.equal('TO');
-      });
-    })
-    .end((err /* , res */) => done(err));
-  });
+  describe.only('update test', () => {
 
-  it('leading and trailing asterisks are treated as "contains"',
-    (done) => {
-    api.get(path + '?name=*ATO*')
-    .set('Authorization', token)
-    .expect(constants.httpStatus.OK)
-    .expect((res) => {
-      res.body.map((sample) => {
-        expect(sample.name).to.contain('ATO');
-      });
-    })
-    .end((err /* , res */) => done(err));
-  });
+    // need update value, so its previousStatus differs from status
+    before((done) => {
+      Sample.findById(SPECIAL_SAMPLE_ID)
+      .then((samp) => Sample.update({
+        value: ONE,
+      }))
+      .then(() => done())
+      .catch((err) => done(err));
+    });
 
-  // FAILING
-  it('filter by status', (done) => {
-    api.get(path + '?status=Warning')
-    .set('Authorization', token)
-    .expect(constants.httpStatus.OK)
-    .expect((res) => {
-      expect(res.body.length).to.equal(1);
-      expect(res.body[0].status).to.equal('Warning');
-    })
-    .end((err /* , res */) => done(err));
-  });
-
-  // need update value, so its previousStatus differs from status
-  // would update value here affect filter by value, and filter by state?
-  it('filter by previousStatus');
-
-  it('filter by value', (done) => {
-    api.get(path + '?value=' + SPECIAL_INT)
-    .set('Authorization', token)
-    .expect(constants.httpStatus.OK)
-    .expect((res) => {
-      expect(res.body.length).to.equal(1);
-      expect(res.body[0].value).to.equal(SPECIAL_INT);
-    })
-    .end((err /* , res */) => done(err));
-  });
-
-  it('filter by messageCode.', (done) => {
-    api.get(path + '?messageCode=' + MESSAGE_CODE_1)
-    .set('Authorization', token)
-    .expect(constants.httpStatus.OK)
-    .expect((res) => {
-      expect(res.body.length).to.equal(1);
-      expect(res.body[0].messageCode).to.equal(MESSAGE_CODE_1);
-    })
-    .end((err /* , res */) => done(err));
+    it('filter by previousStatus', (done) => {
+        api.get(path + '?previousStatus=Critical')
+        .set('Authorization', token)
+        .expect(constants.httpStatus.OK)
+        .expect((res) => {
+          expect(res.body.length).to.equal(1);
+          expect(res.body[0].previousStatus).to.equal('Critical');
+          expect(res.body[0].status).to.equal('Invalid');
+        })
+        .end((err /* , res */) => done(err));
+    });
   });
 });
