@@ -25,7 +25,7 @@ describe('sample api: FILTER' + path, () => {
   let sampleId;
   let token;
   let SPECIAL_SAMPLE_ID;
-  const SPECIAL_INT = '3';
+  const THREE = '3';
   const ONE = '1';
   const MESSAGE_CODE_1 = '12345';
 
@@ -39,7 +39,8 @@ describe('sample api: FILTER' + path, () => {
   });
 
   /**
-   * sets up an object with aspect id, subject id
+   * Sets up an object with aspect id, subject id
+   *
    * @param {String} aspectName The name of the aspect
    * @param {String} subjectName The name of the subject
    * @returns {Object} contains aspect id, subject id
@@ -50,6 +51,7 @@ describe('sample api: FILTER' + path, () => {
       name: `${tu.namePrefix + aspectName}`,
       timeout: '30s',
       criticalRange: [3, 3],
+      okRange: [5, 5],
       valueType: 'NUMERIC',
     };
 
@@ -75,21 +77,25 @@ describe('sample api: FILTER' + path, () => {
 
   before((done) => {
     doSetup('POTATO', 'COFFEE')
-    .then((samp) => {
-      return Sample.create(samp);
+    .then((obj) => {
+      return Sample.create(obj);
     })
     .then(() => doSetup('GELATO', 'COLUMBIA'))
-    .then((samp) => {
-      return Sample.create(samp);
+    .then((obj) => {
+      obj.value = THREE; // different from default
+      return Sample.create(obj);
     })
     .then(() => doSetup('SPECIAL', 'UNIQUE'))
-    .then((samp) => {
-      samp.value = SPECIAL_INT; // different from default
-      samp.messageCode = MESSAGE_CODE_1; // the only one iwith with messageCode
-      return Sample.create(samp);
+    .then((obj) => {
+      obj.value = THREE; // different from default
+      obj.messageCode = MESSAGE_CODE_1;
+      return Sample.create(obj);
     })
-    .then((samp) => {
+    .then((samp) => { // to test previousStatus
       SPECIAL_SAMPLE_ID = samp.id;
+      return samp.update({ value: ONE });
+    })
+    .then(() => { // sample updated
       done();
     })
     .catch((err) => done(err));
@@ -151,24 +157,13 @@ describe('sample api: FILTER' + path, () => {
       .end((err /* , res */) => done(err));
     });
 
-    it('filter by status', (done) => {
-      api.get(path + '?status=Critical')
-      .set('Authorization', token)
-      .expect(constants.httpStatus.OK)
-      .expect((res) => {
-        expect(res.body.length).to.equal(1);
-        expect(res.body[0].status).to.equal('Critical');
-      })
-      .end((err /* , res */) => done(err));
-    });
-
     it('filter by value', (done) => {
-      api.get(path + '?value=' + SPECIAL_INT)
+      api.get(path + '?value=' + ONE)
       .set('Authorization', token)
       .expect(constants.httpStatus.OK)
       .expect((res) => {
         expect(res.body.length).to.equal(1);
-        expect(res.body[0].value).to.equal(SPECIAL_INT);
+        expect(res.body[0].value).to.equal(ONE);
       })
       .end((err /* , res */) => done(err));
     });
@@ -185,28 +180,26 @@ describe('sample api: FILTER' + path, () => {
     });
   });
 
-  describe.only('update test', () => {
+  it('filter by status', (done) => {
+    api.get(path + '?status=Critical')
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(1);
+      expect(res.body[0].status).to.equal('Critical');
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-    // need update value, so its previousStatus differs from status
-    before((done) => {
-      Sample.findById(SPECIAL_SAMPLE_ID)
-      .then((samp) => Sample.update({
-        value: ONE,
-      }))
-      .then(() => done())
-      .catch((err) => done(err));
-    });
-
-    it('filter by previousStatus', (done) => {
-        api.get(path + '?previousStatus=Critical')
-        .set('Authorization', token)
-        .expect(constants.httpStatus.OK)
-        .expect((res) => {
-          expect(res.body.length).to.equal(1);
-          expect(res.body[0].previousStatus).to.equal('Critical');
-          expect(res.body[0].status).to.equal('Invalid');
-        })
-        .end((err /* , res */) => done(err));
-    });
+  it('filter by previousStatus', (done) => {
+      api.get(path + '?previousStatus=Critical')
+      .set('Authorization', token)
+      .expect(constants.httpStatus.OK)
+      .expect((res) => {
+        expect(res.body.length).to.equal(1);
+        expect(res.body[0].previousStatus).to.equal('Critical');
+        expect(res.body[0].status).to.equal('Invalid');
+      })
+      .end((err /* , res */) => done(err));
   });
 });
