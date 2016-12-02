@@ -111,7 +111,7 @@ function toSequelizeWhere(filter, props) {
           },
        * }
        */
-      if (props.fieldsWithEnum.length &&
+      if (Array.isArray(props.fieldsWithEnum) &&
         props.fieldsWithEnum.indexOf(key) > -1) {
         const enumArr = filter[key];
         // to use $in instead of $contains in toWhereClause

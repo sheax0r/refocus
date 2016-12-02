@@ -51,7 +51,6 @@ describe('sample api: FILTER' + path, () => {
       name: `${tu.namePrefix + aspectName}`,
       timeout: '30s',
       criticalRange: [3, 3],
-      okRange: [5, 5],
       valueType: 'NUMERIC',
     };
 
@@ -78,16 +77,17 @@ describe('sample api: FILTER' + path, () => {
   before((done) => {
     doSetup('POTATO', 'COFFEE')
     .then((obj) => {
+      obj.value = 111;
       return Sample.create(obj);
     })
     .then(() => doSetup('GELATO', 'COLUMBIA'))
     .then((obj) => {
-      obj.value = THREE; // different from default
+      obj.value = THREE;
       return Sample.create(obj);
     })
     .then(() => doSetup('SPECIAL', 'UNIQUE'))
     .then((obj) => {
-      obj.value = THREE; // different from default
+      obj.value = THREE;
       obj.messageCode = MESSAGE_CODE_1;
       return Sample.create(obj);
     })
@@ -104,80 +104,90 @@ describe('sample api: FILTER' + path, () => {
   after(u.forceDelete);
   after(tu.forceDeleteUser);
 
-  describe('regular tests', () => {
-
-    it('no asterisk is treated as "equals"', (done) => {
-      const NAME = tu.namePrefix + 'COFFEE|' + tu.namePrefix + 'POTATO';
-      api.get(path + '?name=' + NAME)
-      .set('Authorization', token)
-      .expect(constants.httpStatus.OK)
-      .expect((res) => {
-        expect(res.body.length).to.equal(1);
-        expect(res.body[0].name).to.equal(NAME);
+  it('no asterisk is treated as "equals" for value', (done) => {
+    api.get(path + '?value=' + ONE)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      res.body.map((sample) => {
+        console.log('*** value is', sample.value)
       })
-      .end((err /* , res */) => done(err));
-    });
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-    it('trailing asterisk is treated as "starts with"', (done) => {
-      api.get(path + '?name=' + tu.namePrefix + '*')
-      .set('Authorization', token)
-      .expect(constants.httpStatus.OK)
-      .expect((res) => {
-        expect(res.body.length).to.equal(3);
-        res.body.map((sample) => {
-          expect(sample.name.slice(0, 3)).to.equal(tu.namePrefix);
-        })
-      })
-      .end((err /* , res */) => done(err));
-    });
 
-    it('leading asterisk is treated as "ends with"', (done) => {
-      api.get(path + '?name=*O')
-      .set('Authorization', token)
-      .expect(constants.httpStatus.OK)
-      .expect((res) => {
-        expect(res.body.length).to.equal(2);
-        res.body.map((sample) => {
-          expect(sample.name.slice(-2)).to.equal('TO');
-        });
-      })
-      .end((err /* , res */) => done(err));
-    });
+  it('no asterisk is treated as "equals" for name', (done) => {
+    const NAME = tu.namePrefix + 'COFFEE|' + tu.namePrefix + 'POTATO';
+    api.get(path + '?name=' + NAME)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(1);
+      expect(res.body[0].name).to.equal(NAME);
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-    it('leading and trailing asterisks are treated as "contains"',
-      (done) => {
-      api.get(path + '?name=*ATO*')
-      .set('Authorization', token)
-      .expect(constants.httpStatus.OK)
-      .expect((res) => {
-        res.body.map((sample) => {
-          expect(sample.name).to.contain('ATO');
-        });
+  it('trailing asterisk is treated as "starts with"', (done) => {
+    api.get(path + '?name=' + tu.namePrefix + '*')
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(3);
+      res.body.map((sample) => {
+        expect(sample.name.slice(0, 3)).to.equal(tu.namePrefix);
       })
-      .end((err /* , res */) => done(err));
-    });
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-    it('filter by value', (done) => {
-      api.get(path + '?value=' + ONE)
-      .set('Authorization', token)
-      .expect(constants.httpStatus.OK)
-      .expect((res) => {
-        expect(res.body.length).to.equal(1);
-        expect(res.body[0].value).to.equal(ONE);
-      })
-      .end((err /* , res */) => done(err));
-    });
+  it('leading asterisk is treated as "ends with"', (done) => {
+    api.get(path + '?name=*O')
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(2);
+      res.body.map((sample) => {
+        expect(sample.name.slice(-2)).to.equal('TO');
+      });
+    })
+    .end((err /* , res */) => done(err));
+  });
 
-    it('filter by messageCode.', (done) => {
-      api.get(path + '?messageCode=' + MESSAGE_CODE_1)
-      .set('Authorization', token)
-      .expect(constants.httpStatus.OK)
-      .expect((res) => {
-        expect(res.body.length).to.equal(1);
-        expect(res.body[0].messageCode).to.equal(MESSAGE_CODE_1);
-      })
-      .end((err /* , res */) => done(err));
-    });
+  it('leading and trailing asterisks are treated as "contains"',
+    (done) => {
+    api.get(path + '?name=*ATO*')
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      res.body.map((sample) => {
+        expect(sample.name).to.contain('ATO');
+      });
+    })
+    .end((err /* , res */) => done(err));
+  });
+
+  it('filter by value', (done) => {
+    api.get(path + '?value=' + ONE)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(1);
+      expect(res.body[0].value).to.equal(ONE);
+    })
+    .end((err /* , res */) => done(err));
+  });
+
+  it('filter by messageCode.', (done) => {
+    api.get(path + '?messageCode=' + MESSAGE_CODE_1)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .expect((res) => {
+      expect(res.body.length).to.equal(1);
+      expect(res.body[0].messageCode).to.equal(MESSAGE_CODE_1);
+    })
+    .end((err /* , res */) => done(err));
   });
 
   it('filter by status', (done) => {
