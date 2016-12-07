@@ -64,6 +64,7 @@ describe(`api: GET ${path}`, () => {
       } else {
         expect(res.body).to.have.property('name',
           `${tu.namePrefix}Voldemort`);
+        expect(res.body).to.have.property('isRevoked', '0');
         done();
       }
     });

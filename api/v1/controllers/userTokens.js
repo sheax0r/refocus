@@ -13,6 +13,7 @@
 
 const helper = require('../helpers/nouns/tokens');
 const apiErrors = require('../apiErrors');
+const cnstnts = require('../constants');
 const doDelete = require('../helpers/verbs/doDelete');
 const doFind = require('../helpers/verbs/doFind');
 const doGet = require('../helpers/verbs/doGet');
@@ -20,7 +21,23 @@ const doPatch = require('../helpers/verbs/doPatch');
 const doPost = require('../helpers/verbs/doPost');
 const doPut = require('../helpers/verbs/doPut');
 const u = require('../helpers/verbs/utils');
-const httpStatus = require('../constants').httpStatus;
+const httpStatus = cnstnts.httpStatus;
+
+function whereClauseForUser(user) {
+  const whr = {};
+  whr[cnstnts.SEQ_OR] = [{}, {}];
+  whr[cnstnts.SEQ_OR][0]['user.name'][cnstnts.SEQ_LIKE] = user;
+  whr[cnstnts.SEQ_OR][0]['user.id'][cnstnts.SEQ_LIKE] = user;
+  console.log('whereClauseForUser', whr);
+  return whr;
+} // whereClauseForUser
+
+function whereClauseForUserAndTokenName(user, tokenName) {
+  const whr = whereClauseForUser(user);
+  whr.name[cnstnts.SEQ_LIKE] = tokenName;
+  console.log('whereClauseForUserAndTokenName', whr);
+  return whr;
+} // whereClauseForUserAndTokenName
 
 module.exports = {
 
@@ -36,11 +53,23 @@ module.exports = {
   deleteUserToken(req, res, next) {
     const user = req.swagger.params.key.value;
     const tokenName = req.swagger.params.tokenName.value;
-    const whr = {
-      'user.name': user,
-      name: tokenName,
-    };
-    // doDelete(req, res, next, helper);
+    const whr = whereClauseForUserAndTokenName(user, tokenName);
+    helper.model.findOne(whr)
+    .then((o) => {
+      if (o) {
+        return o.destroy();
+      }
+
+      const err = new apiErrors.ResourceNotFoundError();
+      err.resource = helper.model.name;
+      err.key = user + ', ' + tokenName;
+      throw err;
+    })
+    .then((o) => {
+      return res.status(httpStatus.OK)
+      .json(u.responsify(o, helper, req.method));
+    })
+    .catch((err) => u.handleError(next, err, helper.modelName));
   },
 
   /**
@@ -55,11 +84,12 @@ module.exports = {
   getUserToken(req, res, next) {
     const user = req.swagger.params.key.value;
     const tokenName = req.swagger.params.tokenName.value;
-    const whr = {
-      'user.name': user,
-      name: tokenName,
-    };
-    // doGet(req, res, next, helper);
+    const whr = whereClauseForUserAndTokenName(user, tokenName);
+    helper.model.findOne(whr)
+    .then((o) => {
+      res.status(httpStatus.OK).json(u.responsify(o, helper, req.method));
+    })
+    .catch((err) => u.handleError(next, err, helper.modelName));
   },
 
   /**
@@ -74,10 +104,14 @@ module.exports = {
    */
   getUserTokens(req, res, next) {
     const user = req.swagger.params.key.value;
-    const whr = {
-      'user.name': user,
-    };
-    // doFind(req, res, next, helper);
+    const whr = whereClauseForUser(user);
+    helper.model.findAll(whr)
+    .then((o) => {
+      res.set(cnstnts.COUNT_HEADER_NAME, o.length);
+      const retval = o.map((row) => u.responsify(row, helper, req.method));
+      res.status(httpStatus.OK).json(retval);
+    })
+    .catch((err) => u.handleError(next, err, helper.modelName));
   },
 
   /**
@@ -93,11 +127,8 @@ module.exports = {
   restoreTokenByName(req, res, next) {
     const user = req.swagger.params.key.value;
     const tokenName = req.swagger.params.tokenName.value;
-    const whr = {
-      'user.name': user,
-      name: tokenName,
-    };
-    helper.model.find(whr)
+    const whr = whereClauseForUserAndTokenName(user, tokenName);
+    helper.model.findOne(whr)
     .then((o) => {
       if (o.isRevoked === '0') {
         throw new apiErrors.InvalidTokenActionError();
@@ -124,11 +155,8 @@ module.exports = {
   revokeTokenByName(req, res, next) {
     const user = req.swagger.params.key.value;
     const tokenName = req.swagger.params.tokenName.value;
-    const whr = {
-      'user.name': user,
-      name: tokenName,
-    };
-    helper.model.find(whr)
+    const whr = whereClauseForUserAndTokenName(user, tokenName);
+    helper.model.findOne(whr)
     .then((o) => {
       if (o.isRevoked > '0') {
         throw new apiErrors.InvalidTokenActionError();
