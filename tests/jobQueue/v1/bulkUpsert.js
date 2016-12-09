@@ -10,6 +10,8 @@
  * tests/jobQueue/v1/bulkUpsert.js
  */
 'use strict';
+
+process.env.USE_WORKER_PROCESS=true;
 const jobQueue = require('../../../jobQueue/setup').jobQueue;
 const jobType = require('../../../jobQueue/setup').jobType;
 const expect = require('chai').expect;

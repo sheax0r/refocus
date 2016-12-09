@@ -11,6 +11,7 @@
  */
 'use strict';
 
+process.env.NODE_ENV = 'testTokenNotReq';
 const expect = require('chai').expect;
 const supertest = require('supertest');
 const api = supertest(require('../../index').app);

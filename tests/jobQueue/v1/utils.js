@@ -11,6 +11,7 @@
  */
 'use strict';
 
+process.env.USE_WORKER_PROCESS=true;
 const tu = require('../../testUtils');
 const testStartTime = new Date();
 

@@ -11,6 +11,7 @@
  */
 'use strict';
 
+process.env.DISABLE_HTTP = true;
 const supertest = require('supertest');
 const api = supertest(require('../../index').app);
 const constants = require('../../api/v1/constants');

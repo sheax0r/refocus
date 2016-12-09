@@ -10,6 +10,7 @@
  * tests/tokenReq/api/token/createtoken.js
  */
 
+process.env.NODE_ENV = 'testTokenReq';
 const expect = require('chai').expect;
 const supertest = require('supertest');
 const api = supertest(require('../../../../index').app);
