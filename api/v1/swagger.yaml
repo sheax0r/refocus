@@ -5019,7 +5019,7 @@ paths:
 
 # =============================================================================
   /users/{key}/tokens/{tokenName}/restore:
-    x-swagger-router-controller: userTkens
+    x-swagger-router-controller: userTokens
     post:
       security:
         - jwt: []
