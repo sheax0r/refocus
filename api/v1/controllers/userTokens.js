@@ -14,28 +14,28 @@
 const helper = require('../helpers/nouns/tokens');
 const apiErrors = require('../apiErrors');
 const cnstnts = require('../constants');
-const doDelete = require('../helpers/verbs/doDelete');
-const doFind = require('../helpers/verbs/doFind');
-const doGet = require('../helpers/verbs/doGet');
-const doPatch = require('../helpers/verbs/doPatch');
-const doPost = require('../helpers/verbs/doPost');
-const doPut = require('../helpers/verbs/doPut');
 const u = require('../helpers/verbs/utils');
 const httpStatus = cnstnts.httpStatus;
 
 function whereClauseForUser(user) {
   const whr = {};
-  whr[cnstnts.SEQ_OR] = [{}, {}];
+  whr[cnstnts.SEQ_OR] = [
+    {
+      'user.name': {},
+    },
+    {
+      'user.id': {},
+    },
+  ];
   whr[cnstnts.SEQ_OR][0]['user.name'][cnstnts.SEQ_LIKE] = user;
-  whr[cnstnts.SEQ_OR][0]['user.id'][cnstnts.SEQ_LIKE] = user;
-  console.log('whereClauseForUser', whr);
+  whr[cnstnts.SEQ_OR][1]['user.id'][cnstnts.SEQ_LIKE] = user;
   return whr;
 } // whereClauseForUser
 
 function whereClauseForUserAndTokenName(user, tokenName) {
   const whr = whereClauseForUser(user);
+  whr.name = {};
   whr.name[cnstnts.SEQ_LIKE] = tokenName;
-  console.log('whereClauseForUserAndTokenName', whr);
   return whr;
 } // whereClauseForUserAndTokenName
 
