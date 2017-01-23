@@ -38,20 +38,22 @@ function start() { // eslint-disable-line max-statements
   // set up sever side socket.io and redis publisher
   const express = require('express');
   const enforcesSSL = require('express-enforces-ssl');
-
+  const RateLimit = require('express-rate-limit');
   const app = express();
 
   // redis client to for request limiter
   const limiterRedisClient = require('redis').createClient(env.redisUrl);
 
   // request limiter setting
-  const limiter = require('express-limiter')(app, limiterRedisClient);
-  limiter({
-    path: conf.endpointToLimit,
-    method: conf.httpMethodToLimit,
-    lookup: ['headers.x-forwarded-for'],
-    total: conf.rateLimit,
-    expire: conf.rateWindow,
+  const limiter = new RateLimit(limiterRedisClient, {
+    // in milliseconds
+    windowMs: conf.rateWindow,
+    // limit each IP to x requests per windowMs
+    max: conf.rateLimit,
+    // slow down subsequent responses by delayMs seconds per request
+    delayMs: conf.delayMs,
+    // start delaying after these many requests
+    delayAfter: conf.delayAfter,
   });
 
   /*
@@ -97,7 +99,15 @@ function start() { // eslint-disable-line max-statements
     app.enable('trust proxy');
     app.use(enforcesSSL());
   }
+  const limiter = new RateLimit({
+    windowMs: 15*60*1000, // 15 minutes
+    max: 5, // limit each IP to 100 requests per windowMs
+    delayMs: 2 * 1000, // slow down subsequent responses by 2 seconds per request
+    delayAfter: 1, // start delaying after these many requests
+  });
 
+  //  apply to all requests
+  app.use(limiter);
   // Set the IP restricitions defined in config.js
   app.use(ipfilter(env.ipWhitelist, { mode: 'allow', log: false }));
 
