@@ -35,6 +35,11 @@ const constants = {
   objectType: { aspect: 'aspect', sample: 'sample', subject: 'subject' },
   prefix: PFX,
   separator: SEP,
+  commands: {
+    hgetall: 'hgetall',
+    hget: 'hget',
+    smembers: 'smembers',
+  },
 };
 
 /**
