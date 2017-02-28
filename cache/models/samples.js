@@ -103,8 +103,8 @@ module.exports = {
     const aspectCmds = [];
     const response = [];
 
-    // get all Samples
-    redisClient.smembersAsync(constants.indexKey.sample)
+    // get all Samples sorted lexicographically
+    redisClient.sortAsync(constants.indexKey.sample, 'alpha')
     .then((allSampleKeys) => {
       // add to commands to get sample
       allSampleKeys.forEach((sampleName) => {

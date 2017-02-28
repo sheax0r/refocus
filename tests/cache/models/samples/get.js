@@ -9,7 +9,7 @@
 /**
  * tests/cache/models/samples/get.js
  */
-'use strict';
+'use strict'; // eslint-disable-line strict
 
 const supertest = require('supertest');
 const api = supertest(require('../../../../index').app);
@@ -18,7 +18,6 @@ const tu = require('../../../testUtils');
 const rtu = require('../redisTestUtil');
 const path = '/v1/samples';
 const expect = require('chai').expect;
-const ZERO = 0;
 
 describe(`api::redisEnabled::GET ${path}`, () => {
   let token;
@@ -37,7 +36,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   after(rtu.forceDelete);
   after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
-  it('basic get', (done) => {
+  it('basic get, sorted lexicographically by default', (done) => {
     api.get(path)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
@@ -47,6 +46,18 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       }
 
       expect(res.body.length).to.be.equal(3);
+      expect(res.body[0].name).to.be
+      .equal('___Subject1.___Subject2|___Aspect1');
+      expect(res.body[1].name).to.be
+      .equal('___Subject1.___Subject2|___Aspect2');
+      expect(res.body[2].name).to.be
+      .equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body[0].status).to.be.equal('Critical');
+      expect(res.body[0].value).to.be.equal('0');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
+      expect(res.body[0].relatedLinks).to.be.eql([
+        { name: 'Salesforce', value: 'http://www.salesforce.com' },
+      ]);
       done();
     });
   });
@@ -63,7 +74,6 @@ describe(`api::redisEnabled::GET ${path}`, () => {
 
       expect(res.body.name).to.be.equal('___Subject1.___Subject3|___Aspect1');
       expect(res.body.status).to.be.equal('Invalid');
-      expect(res.body.value).to.be.equal('5');
       expect(res.body.value).to.be.equal('5');
       expect(res.body.relatedLinks).to.be.eql([
         { name: 'Salesforce', value: 'http://www.salesforce.com' },
