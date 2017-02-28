@@ -19,9 +19,35 @@ const redisClient = require('../redisCache').client.sampleStore;
 const constants = sampleStore.constants;
 const apiConstants = require('../../api/v1/constants');
 const defaults = require('../../config').api.defaults;
+const redisErrors = require('../redisErrors');
 const ZERO = 0;
 const ONE = 1;
 
+function getCustomAttrCommand(attrsToFilter, sampleKey) {
+  const command = [
+    'hmget',
+    sampleKey,
+  ];
+
+  attrsToFilter.forEach((attr) => {
+    command.push(attr);
+  });
+  return command;
+}
+
+function sampObjFromRedis(attrsToFilter, sampleRes) {
+  let sampleObj = {};
+  if (attrsToFilter) {
+    // if hmget, response is an array of values, so create sample object
+    for (let i = 0; i < attrsToFilter.length; i++) {
+      sampleObj[attrsToFilter[i]] = sampleRes[i];
+    }
+  } else {
+    sampleObj = sampleRes; // if hgetAll, object is returned
+  }
+
+  return sampleObj;
+}
 
 /**
  * [getOptionsFromReq description]
@@ -79,6 +105,12 @@ function getOptionsFromReq(params) {
  * @returns {Object} - Sample object with aspect attached
  */
 function cleanAddAspectToSample(sampleObj, aspectObj, method) {
+  if (!sampleObj || !aspectObj) {
+    throw new redisErrors.ResourceNotFoundError({
+      explanation: 'Sample or Aspect not present in Redis',
+    });
+  }
+
   let sampleRes = {};
   sampleRes = sampleStore.arrayStringsToJson(
     sampleObj, constants.fieldsToStringify.sample
@@ -117,14 +149,8 @@ module.exports = {
 
     if (opts.attributes) {
       attrsToFilter = opts.attributes;
-      const command = [
-        'hmget',
-        sampleStore.toKey(constants.objectType.sample, sampleName),
-      ];
-
-      attrsToFilter.forEach((attr) => {
-        command.push(attr);
-      });
+      const sKey = sampleStore.toKey(constants.objectType.sample, sampleName);
+      const command = getCustomAttrCommand(attrsToFilter, sKey);
 
       // get sample
       commands.push(command);
@@ -148,15 +174,7 @@ module.exports = {
       const aspectResponse = responses[ONE];
 
       resultObj.dbTime = new Date() - resultObj.reqStartTime; // log db time
-      let sampleObj = {};
-      if (attrsToFilter) {
-        // if hmget, response is an array of values, so create sample object
-        for (let i = 0; i < attrsToFilter.length; i++) {
-          sampleObj[attrsToFilter[i]] = sampleResponse[i];
-        }
-      } else {
-        sampleObj = sampleResponse; // if hgetAll, object is returned
-      }
+      const sampleObj = sampObjFromRedis(attrsToFilter, sampleResponse);
 
       // clean and attach aspect to sample
       const sampleRes = cleanAddAspectToSample(
@@ -182,16 +200,30 @@ module.exports = {
     const sampleCmds = [];
     const aspectCmds = [];
     const response = [];
+    let attrsToFilter;
+
+    // needed to iterate on when all promises are resolved
+    let allSampleKeysInRedis;
 
     // get all Samples sorted lexicographically
     redisClient.sortAsync(constants.indexKey.sample, 'alpha')
     .then((allSampleKeys) => {
-      // add to commands to get sample
-      allSampleKeys.forEach((sampleName) => {
-        sampleCmds.push(
-          ['hgetall', sampleName.toLowerCase()]
-        );
-      });
+      allSampleKeysInRedis = allSampleKeys;
+      if (opts.attributes) {
+        attrsToFilter = opts.attributes;
+        // add to commands to get specified sample attributes
+        allSampleKeys.forEach((sampleName) => {
+          const command = getCustomAttrCommand(attrsToFilter, sampleName);
+          sampleCmds.push(command); // get sample
+        });
+      } else {
+        // add to commands to get all sample fields
+        allSampleKeys.forEach((sampleName) => {
+          sampleCmds.push(
+            ['hgetall', sampleName]
+          );
+        });
+      }
 
       // get all aspect names
       return redisClient.smembersAsync(constants.indexKey.aspect);
@@ -200,7 +232,7 @@ module.exports = {
       // add to commands to get aspect
       allAspectKeys.forEach((aspectName) => {
         aspectCmds.push(
-          ['hgetall', aspectName.toLowerCase()]
+          ['hgetall', aspectName]
         );
       });
 
@@ -212,19 +244,22 @@ module.exports = {
     })
     .then((sampleAndAspects) => {
       resultObj.dbTime = new Date() - resultObj.reqStartTime; // log db time
-      const samples = sampleAndAspects[ZERO];
+      const sampleResults = sampleAndAspects[ZERO];
       const aspects = sampleAndAspects[ONE];
 
-      samples.forEach((sampleObj) => {
+      // we need to iterate on allSampleKeys because we need aspect name from
+      // sample name
+      for (let i = 0; i < allSampleKeysInRedis.length; i++) {
+        const sampleKey = allSampleKeysInRedis[i];
+        const sampleObj = sampObjFromRedis(attrsToFilter, sampleResults[i]);
         const sampleAspect = aspects.find((aspect) =>
-          aspect.name === sampleObj.name.split('|')[ONE]
+          aspect.name.toLowerCase() === sampleKey.split('|')[ONE]
         );
-
-        const sampleRes = cleanAddAspectToSample(
+        const resSampAsp = cleanAddAspectToSample(
           sampleObj, sampleAspect, res.method
         );
-        response.push(sampleRes); // add sample to response
-      });
+        response.push(resSampAsp); // add sample to response
+      }
     })
     .then(() => {
       u.logAPI(req, resultObj, response); // audit log

@@ -62,6 +62,30 @@ describe(`api::redisEnabled::GET ${path}`, () => {
     });
   });
 
+  it('get all with fields filter', (done) => {
+    api.get(`${path}?fields=name,status`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.length).to.be.equal(3);
+      expect(res.body[0].name).to.be
+      .equal('___Subject1.___Subject2|___Aspect1');
+      expect(res.body[1].name).to.be
+      .equal('___Subject1.___Subject2|___Aspect2');
+      expect(res.body[2].name).to.be
+      .equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body[0].status).to.be.equal('Critical');
+      expect(res.body[0].value).to.be.undefined;
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
+      expect(res.body[0].relatedLinks).to.be.undefined;
+      done();
+    });
+  });
+
   it('basic get by name', (done) => {
     const sampleName = '___Subject1.___Subject3|___Aspect1';
     api.get(`${path}/${sampleName}`)
