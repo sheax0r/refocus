@@ -33,7 +33,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   before(rtu.populateRedis);
-  // after(rtu.forceDelete);
+  after(rtu.forceDelete);
   after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
   it('basic get, sorted lexicographically by default', (done) => {
@@ -107,6 +107,45 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       ]);
       expect(res.body.aspect.criticalRange).to.be.eql([0, 1]);
       done();
+    });
+  });
+
+  it('get by name, with fields filter', (done) => {
+    const sampleName = '___Subject1.___Subject3|___Aspect1';
+    api.get(`${path}/${sampleName}?fields=name,value`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.name).to.be.equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body.status).to.be.undefined;
+      expect(res.body.value).to.be.equal('5');
+      expect(res.body.relatedLinks).to.be.undefined;
+      expect(res.body).to.have.property('apiLinks').that.is.an('array');
+      expect(res.body.aspect.name).to.be.equal('___Aspect1');
+      expect(res.body.aspect.relatedLinks).to.be.eql([
+        { name: 'Google', value: 'http://www.google.com' },
+        { name: 'Yahoo', value: 'http://www.yahoo.com' },
+      ]);
+      expect(res.body.aspect.criticalRange).to.be.eql([0, 1]);
+      done();
+    });
+  });
+
+  it('get by name with incorrect fields filter gives error', (done) => {
+    const sampleName = '___Subject1.___Subject3|___Aspect1';
+    api.get(`${path}/${sampleName}?fields=name,y`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.BAD_REQUEST)
+    .end((err, res) => {
+      if (err) {
+        return done(err);
+      }
+
+      return done();
     });
   });
 });
