@@ -17,8 +17,58 @@ const httpStatus = require('../../api/v1/constants').httpStatus;
 const sampleStore = require('../sampleStore');
 const redisClient = require('../redisCache').client.sampleStore;
 const constants = sampleStore.constants;
+const apiConstants = require('../../api/v1/constants');
+const defaults = require('../../config').api.defaults;
 const ZERO = 0;
 const ONE = 1;
+
+
+/**
+ * [getOptionsFromReq description]
+ * @param  {[type]} params [description]
+ * @return {[type]}        [description]
+ */
+function getOptionsFromReq(params) {
+  // eg. ?fields=x,y,z. Adds as opts.attributes = [array of fields]
+  // id is always included
+  const opts = u.buildFieldList(params);
+
+  // Specify the sort order. If defaultOrder is defined in props or sort value
+  // then update sort order otherwise take value from model defination
+  if ((params.sort && params.sort.value) || helper.defaultOrder) {
+    opts.order = params.sort.value || helper.defaultOrder;
+  }
+
+  // handle limit
+  if (params.limit && params.limit.value) {
+    opts.limit = parseInt(params.limit.value, defaults.limit);
+  }
+
+  // handle offset
+  if (params.offset && params.offset.value) {
+    opts.offset = parseInt(params.offset.value, defaults.offset);
+  }
+
+  const filter = {};
+  const keys = Object.keys(params);
+
+  for (let i = ZERO; i < keys.length; i++) {
+    const key = keys[i];
+    const isFilterField = apiConstants.NOT_FILTER_FIELDS.indexOf(key) < ZERO;
+    if (isFilterField && params[key].value !== undefined) {
+      filter[key] = params[key].value;
+    }
+  }
+
+  // in case of get by id, default param  key -> {name of sample} is present
+  // hence, filter: { key: '___Subject1.___Subject3|___Aspect1' } }
+  if (Object.keys(filter).length !== 0 && filter.constructor === Object) {
+    opts.filter = filter;
+  }
+
+  return opts;
+}
+
 
 /**
  * Convert array strings to Json for sample and aspect, then attach aspect to
@@ -58,16 +108,33 @@ module.exports = {
    * @param {Function} next - The next middleware function in the stack
    */
   getSampleFromRedis(req, res, next) {
+    const opts = getOptionsFromReq(req.swagger.params);
     const resultObj = { reqStartTime: new Date() }; // for logging
     const sampleName = req.swagger.params.key.value.toLowerCase();
     const aspectName = sampleName.split('|')[ONE];
     const commands = [];
+    let attrsToFilter;
 
-    // get sample
-    commands.push([
-      'hgetall',
-      sampleStore.toKey(constants.objectType.sample, sampleName),
-    ]);
+    if (opts.attributes) {
+      attrsToFilter = opts.attributes;
+      const command = [
+        'hmget',
+        sampleStore.toKey(constants.objectType.sample, sampleName),
+      ];
+
+      attrsToFilter.forEach((attr) => {
+        command.push(attr);
+      });
+
+      // get sample
+      commands.push(command);
+    } else {
+      // get sample
+      commands.push([
+        'hgetall',
+        sampleStore.toKey(constants.objectType.sample, sampleName),
+      ]);
+    }
 
     // get aspect
     commands.push([
@@ -77,11 +144,23 @@ module.exports = {
 
     redisClient.batch(commands).execAsync()
     .then((responses) => {
+      const sampleResponse = responses[ZERO];
+      const aspectResponse = responses[ONE];
+
       resultObj.dbTime = new Date() - resultObj.reqStartTime; // log db time
+      let sampleObj = {};
+      if (attrsToFilter) {
+        // if hmget, response is an array of values, so create sample object
+        for (let i = 0; i < attrsToFilter.length; i++) {
+          sampleObj[attrsToFilter[i]] = sampleResponse[i];
+        }
+      } else {
+        sampleObj = sampleResponse; // if hgetAll, object is returned
+      }
 
       // clean and attach aspect to sample
       const sampleRes = cleanAddAspectToSample(
-        responses[ZERO], responses[ONE], res.method
+        sampleObj, aspectResponse, res.method
       );
 
       u.logAPI(req, resultObj, sampleRes); // audit log
@@ -98,6 +177,7 @@ module.exports = {
    * @param {Function} next - The next middleware function in the stack
    */
   findSamplesFromRedis(req, res, next) {
+    const opts = getOptionsFromReq(req.swagger.params);
     const resultObj = { reqStartTime: new Date() }; // for logging
     const sampleCmds = [];
     const aspectCmds = [];

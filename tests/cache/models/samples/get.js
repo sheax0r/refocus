@@ -33,7 +33,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   before(rtu.populateRedis);
-  after(rtu.forceDelete);
+  // after(rtu.forceDelete);
   after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
   it('basic get, sorted lexicographically by default', (done) => {
