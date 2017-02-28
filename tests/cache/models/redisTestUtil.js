@@ -7,12 +7,13 @@
  */
 
 /**
- * tests/api/v1/redisEnabled/redisTestUtil.js
+ * tests/cache/models/redisTestUtil.js
  */
 'use strict'; // eslint-disable-line strict
-const sampleStore = require('../../../../cache/sampleStore');
-const redisClient = require('../../../../cache/redisCache').client.sampleStore;
-const tu = require('../../../testUtils');
+const sampleStore = require('../../../cache/sampleStore');
+const samstoinit = require('../../../cache/sampleStoreInit');
+const redisClient = require('../../../cache/redisCache').client.sampleStore;
+const tu = require('../../testUtils');
 const Aspect = tu.db.Aspect;
 const Subject = tu.db.Subject;
 const Sample = tu.db.Sample;
@@ -87,7 +88,7 @@ module.exports = {
         { name: 'Salesforce', value: 'http://www.salesforce.com' },
       ],
     }))
-    .then(() => sampleStore.init())
+    .then(() => samstoinit.init())
     .then(() => done())
     .catch(done);
   },

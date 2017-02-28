@@ -24,38 +24,8 @@ const u = require('../helpers/verbs/utils');
 const httpStatus = require('../constants').httpStatus;
 const logAuditAPI = require('../../../utils/loggingUtil').logAuditAPI;
 const sampleStore = require('../../../cache/sampleStore');
-const redisClient = require('../../../cache/redisCache').client.sampleStore;
 const constants = sampleStore.constants;
-const ZERO = 0;
-const ONE = 1;
-
-/**
- * Convert array strings to Json for sample and aspect, then attach aspect to
- * sample.
- * @param  {Object} sampleObj - Sample object from redis
- * @param  {Object} aspectObj - Aspect object from redis
- * @param  {String} method - Request method
- * @returns {Object} - Sample object with aspect attached
- */
-function cleanAddAspectToSample(sampleObj, aspectObj, method) {
-  let sampleRes = {};
-  sampleRes = sampleStore.arrayStringsToJson(
-    sampleObj, constants.fieldsToStringify.sample
-  );
-
-  const aspect = sampleStore.arrayStringsToJson(
-    aspectObj, constants.fieldsToStringify.aspect
-  );
-
-  sampleRes.aspect = aspect;
-
-  // add api links
-  sampleRes.apiLinks = u.getApiLinks(
-    sampleRes.name, helper, method
-  );
-
-  return sampleRes;
-}
+const redisModelSample = require('../../../cache/models/samples');
 
 module.exports = {
 
@@ -83,58 +53,7 @@ module.exports = {
    */
   findSamples(req, res, next) {
     if (featureToggles.isFeatureEnabled(constants.featureName)) {
-      const sampleCmds = [];
-      const aspectCmds = [];
-      const response = [];
-
-      // get all Samples
-      redisClient.smembersAsync(constants.indexKey.sample)
-      .then((allSampleKeys) => {
-        // add to commands to get sample
-        allSampleKeys.forEach((sampleName) => {
-          sampleCmds.push(
-            [constants.commands.hgetall, sampleName.toLowerCase()]
-          );
-        });
-
-        // get all aspect names
-        return redisClient.smembersAsync(constants.indexKey.aspect);
-      })
-      .then((allAspectKeys) => {
-        // add to commands to get aspect
-        allAspectKeys.forEach((aspectName) => {
-          aspectCmds.push(
-            [constants.commands.hgetall, aspectName.toLowerCase()]
-          );
-        });
-
-        // get all samples and aspects
-        return Promise.all([
-          redisClient.batch(sampleCmds).execAsync(),
-          redisClient.batch(aspectCmds).execAsync(),
-        ]);
-      })
-      .then((sampleAndAspects) => {
-        const samples = sampleAndAspects[ZERO];
-        const aspects = sampleAndAspects[ONE];
-
-        samples.forEach((sampleObj) => {
-          const sampleAspect = aspects.find((aspect) =>
-            aspect.name === sampleObj.name.split('|')[ONE]
-          );
-
-          const sampleRes = cleanAddAspectToSample(
-            sampleObj, sampleAspect, res.method
-          );
-
-          // add sample to response
-          response.push(sampleRes);
-        });
-      })
-      .then(() => {
-        res.status(httpStatus.OK).json(response);
-      })
-      .catch((err) => u.handleError(next, err, helper.modelName));
+      redisModelSample.findSamplesFromRedis(req, res, next);
     } else {
       doFind(req, res, next, helper);
     }
@@ -151,31 +70,7 @@ module.exports = {
    */
   getSample(req, res, next) {
     if (featureToggles.isFeatureEnabled(constants.featureName)) {
-      const sampleName = req.swagger.params.key.value.toLowerCase();
-      const aspectName = sampleName.split('|')[ONE];
-      const commands = [];
-
-      // get sample
-      commands.push([
-        constants.commands.hgetall,
-        sampleStore.toKey(constants.objectType.sample, sampleName),
-      ]);
-
-      // get aspect
-      commands.push([
-        constants.commands.hgetall,
-        sampleStore.toKey(constants.objectType.aspect, aspectName),
-      ]);
-
-      redisClient.batch(commands).execAsync()
-      .then((responses) => {
-        // clean and attach aspect to sample
-        const sampleRes = cleanAddAspectToSample(
-          responses[ZERO], responses[ONE], res.method
-        );
-
-        res.status(httpStatus.OK).json(sampleRes);
-      });
+      redisModelSample.getSampleFromRedis(req, res, next);
     } else {
       doGet(req, res, next, helper);
     }

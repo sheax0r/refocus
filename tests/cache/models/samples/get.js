@@ -7,14 +7,14 @@
  */
 
 /**
- * tests/api/v1/redisEnabled/samples/get.js
+ * tests/cache/models/samples/get.js
  */
 'use strict';
 
 const supertest = require('supertest');
-const api = supertest(require('../../../../../index').app);
-const constants = require('../../../../../api/v1/constants');
-const tu = require('../../../../testUtils');
+const api = supertest(require('../../../../index').app);
+const constants = require('../../../../api/v1/constants');
+const tu = require('../../../testUtils');
 const rtu = require('../redisTestUtil');
 const path = '/v1/samples';
 const expect = require('chai').expect;

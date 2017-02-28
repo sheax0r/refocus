@@ -35,11 +35,6 @@ const constants = {
   objectType: { aspect: 'aspect', sample: 'sample', subject: 'subject' },
   prefix: PFX,
   separator: SEP,
-  commands: {
-    hgetall: 'hgetall',
-    hget: 'hget',
-    smembers: 'smembers',
-  },
 };
 
 /**
@@ -52,6 +47,23 @@ const constants = {
 function toKey(type, name) {
   return PFX + SEP + type + SEP + name.toLowerCase();
 } // toKey
+
+/**
+ * Convert array strings to json from redis object
+ * @param  {Object} obj - Object to convert
+ * @param  {Object} arrayFields - List of array fields which were stringified.
+ * @returns {Object} - Converted object
+ */
+function arrayStringsToJson(obj, arrayFields) {
+  Object.keys(obj).forEach((key) => {
+    // Some array fields might have already been parsed in previous calls
+    // because of pass-by-reference behaviour of object, hence array check
+    if (arrayFields.includes(key) && (!Array.isArray(obj[key]))) {
+      obj[key] = JSON.parse(obj[key]);
+    }
+  });
+  return obj;
+} // arrayStringsToJson
 
 /**
  * Remove null fields; stringify array fields.
