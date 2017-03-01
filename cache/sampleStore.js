@@ -53,6 +53,11 @@ function toKey(type, name) {
   return PFX + SEP + type + SEP + name.toLowerCase();
 } // toKey
 
+function getNameFromKey(key) {
+  const splitArr = key.split(SEP);
+  return splitArr[splitArr.length - 1];
+}
+
 /**
  * Convert array strings to json from redis object
  * @param  {Object} obj - Object to convert
@@ -122,4 +127,5 @@ module.exports = {
   constants,
   toKey,
   arrayStringsToJson,
+  getNameFromKey,
 };

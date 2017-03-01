@@ -33,7 +33,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   before(rtu.populateRedis);
-  after(rtu.forceDelete);
+  // after(rtu.forceDelete);
   after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
   it('basic get, sorted lexicographically by default', (done) => {
@@ -82,6 +82,66 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       expect(res.body[0].value).to.be.undefined;
       expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
       expect(res.body[0].relatedLinks).to.be.undefined;
+      done();
+    });
+  });
+
+  it('get all, with limit filter', (done) => {
+    api.get(`${path}?limit=1&offset=1`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.length).to.be.equal(1);
+      expect(res.body[0].name).to.be
+      .equal('___Subject1.___Subject2|___Aspect2');
+      expect(res.body[0].status).to.be.equal('OK');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect2');
+      done();
+    });
+  });
+
+  it('get all, with name filter', (done) => {
+    api.get(`${path}?name=___Subject1.___Subject2*`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.length).to.be.equal(2);
+      expect(res.body[0].name).to.be
+      .equal('___Subject1.___Subject2|___Aspect1');
+      expect(res.body[1].name).to.be
+      .equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body[0].status).to.be.equal('Critical');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
+      done();
+    });
+  });
+
+  it('get all, with combined filters, no sort', (done) => {
+    const filterstr = 'limit=1&offset=1&name=___Subject1.___Subject2*&' +
+    'fields=name,status';
+    api.get(`${path}?${filterstr}`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.length).to.be.equal(1);
+      expect(res.body[0].name).to.be
+      .equal('___Subject1.___Subject2|___Aspect2');
+      expect(res.body[0].status).to.be.equal('OK');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect2');
+      expect(res.body[0].relatedLinks).to.be.undefined;
+      expect(res.body[0].value).to.be.undefined;
       done();
     });
   });

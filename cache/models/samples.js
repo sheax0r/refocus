@@ -23,6 +23,10 @@ const redisErrors = require('../redisErrors');
 const ZERO = 0;
 const ONE = 1;
 
+function propComparator(prop) {
+  return (a, b) => a[prop] - b[prop];
+}
+
 function getCustomAttrCommand(attrsToFilter, sampleKey) {
   const command = [
     'hmget',
@@ -33,20 +37,6 @@ function getCustomAttrCommand(attrsToFilter, sampleKey) {
     command.push(attr);
   });
   return command;
-}
-
-function sampObjFromRedis(attrsToFilter, sampleRes) {
-  let sampleObj = {};
-  if (attrsToFilter) {
-    // if hmget, response is an array of values, so create sample object
-    for (let i = 0; i < attrsToFilter.length; i++) {
-      sampleObj[attrsToFilter[i]] = sampleRes[i];
-    }
-  } else {
-    sampleObj = sampleRes; // if hgetAll, object is returned
-  }
-
-  return sampleObj;
 }
 
 /**
@@ -92,6 +82,7 @@ function getOptionsFromReq(params) {
     opts.filter = filter;
   }
 
+  console.log(opts);
   return opts;
 }
 
@@ -130,6 +121,44 @@ function cleanAddAspectToSample(sampleObj, aspectObj, method) {
   return sampleRes;
 }
 
+function applyLimitAndOffset(opts, sampArr) {
+  let startIndex = 0;
+  let endIndex = sampArr.length;
+  if (opts.offset) {
+    startIndex = opts.offset;
+  }
+
+  if (opts.limit) {
+    endIndex = startIndex + opts.limit;
+  }
+
+  // apply limit and offset, default 0 to length
+  return sampArr.slice(startIndex, endIndex);
+}
+
+/**
+ * [filterByFieldWildCardExpr description]
+ * @param  {[type]}  sampArr - Array of sample keys or sample objects
+ * @param  {[type]}  propVal   [description]
+ * @param  {Boolean} isArrObjs [description]
+ * @return {[type]}            [description]
+ */
+function filterByFieldWildCardExpr(sampArr, propVal) {
+  const re = new RegExp(propVal.toLowerCase(), 'g');
+  return sampArr.filter((samp) => {
+    let sampName;
+
+    // array of sample objects
+    if (samp.name) {
+      sampName = samp.name;
+    } else { // array of sample keys
+      sampName = sampleStore.getNameFromKey(samp);
+    }
+
+    return re.test(sampName);
+  });
+}
+
 module.exports = {
 
   /**
@@ -145,22 +174,12 @@ module.exports = {
     const sampleName = req.swagger.params.key.value.toLowerCase();
     const aspectName = sampleName.split('|')[ONE];
     const commands = [];
-    let attrsToFilter;
 
-    if (opts.attributes) {
-      attrsToFilter = opts.attributes;
-      const sKey = sampleStore.toKey(constants.objectType.sample, sampleName);
-      const command = getCustomAttrCommand(attrsToFilter, sKey);
-
-      // get sample
-      commands.push(command);
-    } else {
-      // get sample
-      commands.push([
-        'hgetall',
-        sampleStore.toKey(constants.objectType.sample, sampleName),
-      ]);
-    }
+    // get sample
+    commands.push([
+      'hgetall',
+      sampleStore.toKey(constants.objectType.sample, sampleName),
+    ]);
 
     // get aspect
     commands.push([
@@ -170,15 +189,23 @@ module.exports = {
 
     redisClient.batch(commands).execAsync()
     .then((responses) => {
-      const sampleResponse = responses[ZERO];
-      const aspectResponse = responses[ONE];
-
       resultObj.dbTime = new Date() - resultObj.reqStartTime; // log db time
-      const sampleObj = sampObjFromRedis(attrsToFilter, sampleResponse);
+      const sample = responses[ZERO];
+
+      // apply field list filter
+      if (opts.attributes) {
+        Object.keys(sample).forEach((sampField) => {
+          if (!opts.attributes[sampField]) {
+            delete sample[sampField];
+          }
+        });
+      }
+
+      const aspect = responses[ONE];
 
       // clean and attach aspect to sample
       const sampleRes = cleanAddAspectToSample(
-        sampleObj, aspectResponse, res.method
+        sample, aspect, res.method
       );
 
       u.logAPI(req, resultObj, sampleRes); // audit log
@@ -200,30 +227,29 @@ module.exports = {
     const sampleCmds = [];
     const aspectCmds = [];
     const response = [];
-    let attrsToFilter;
-
-    // needed to iterate on when all promises are resolved
-    let allSampleKeysInRedis;
 
     // get all Samples sorted lexicographically
     redisClient.sortAsync(constants.indexKey.sample, 'alpha')
-    .then((allSampleKeys) => {
-      allSampleKeysInRedis = allSampleKeys;
-      if (opts.attributes) {
-        attrsToFilter = opts.attributes;
-        // add to commands to get specified sample attributes
-        allSampleKeys.forEach((sampleName) => {
-          const command = getCustomAttrCommand(attrsToFilter, sampleName);
-          sampleCmds.push(command); // get sample
-        });
-      } else {
-        // add to commands to get all sample fields
-        allSampleKeys.forEach((sampleName) => {
-          sampleCmds.push(
-            ['hgetall', sampleName]
-          );
-        });
+    .then((allSampKeys) => {
+      let sampKeys;
+
+      // apply limit and offset if no sort order defined
+      if (!opts.order) {
+        sampKeys = applyLimitAndOffset(opts, allSampKeys);
       }
+     
+      // apply wildcard expr on name, if specified
+      if (opts.filter && opts.filter.name) {
+        const filteredKeys = filterByFieldWildCardExpr(
+          sampKeys, opts.filter.name
+        );
+        sampKeys = filteredKeys;
+      }
+
+      // add to commands
+      sampKeys.forEach((sampKey) => {
+        sampleCmds.push(['hgetall', sampKey]); // get sample
+      });
 
       // get all aspect names
       return redisClient.smembersAsync(constants.indexKey.aspect);
@@ -244,21 +270,54 @@ module.exports = {
     })
     .then((sampleAndAspects) => {
       resultObj.dbTime = new Date() - resultObj.reqStartTime; // log db time
-      const sampleResults = sampleAndAspects[ZERO];
+      const samples = sampleAndAspects[ZERO];
       const aspects = sampleAndAspects[ONE];
+      let filteredSamples;
 
-      // we need to iterate on allSampleKeys because we need aspect name from
-      // sample name
-      for (let i = 0; i < allSampleKeysInRedis.length; i++) {
-        const sampleKey = allSampleKeysInRedis[i];
-        const sampleObj = sampObjFromRedis(attrsToFilter, sampleResults[i]);
-        const sampleAspect = aspects.find((aspect) =>
-          aspect.name.toLowerCase() === sampleKey.split('|')[ONE]
-        );
-        const resSampAsp = cleanAddAspectToSample(
-          sampleObj, sampleAspect, res.method
-        );
-        response.push(resSampAsp); // add sample to response
+      // apply wildcard expr if other than name because
+      // name filter was applied before redis call
+      if (opts.filter) {
+        const filterOptions = opts.filter;
+        Object.keys(filterOptions).forEach((field) => {
+          if (field !== 'name') {
+            const filteredKeys = filterByFieldWildCardExpr(
+              samples, filterOptions[field]
+            );
+            filteredSamples = filteredKeys;
+          }
+        });
+      }
+
+      // sort and apply limits to samples
+      if (opts.order) {
+        // sort by first value in sort query param
+        const compare = propComparator(opts.order[ZERO]);
+        filteredSamples.sort(compare);
+
+        const slicedSampObjs = applyLimitAndOffset(opts, filteredSamples);
+        filteredSamples = slicedSampObjs;
+      }
+
+      // apply field list filter
+      if (opts.attributes) {
+        filteredSamples.forEach((sample) => {
+          Object.keys(sample).forEach((sampField) => {
+            if (!opts.attributes[sampField]) {
+              delete sample[sampField];
+            }
+          });
+
+          // find aspect in aspect response
+          const sampleAspect = aspects.find((aspect) =>
+            aspect.name === sample.split('|')[ONE]
+          );
+
+          // attach aspect to sample
+          const resSampAsp = cleanAddAspectToSample(
+            sample, sampleAspect, res.method
+          );
+          response.push(resSampAsp); // add sample to response
+        });
       }
     })
     .then(() => {
