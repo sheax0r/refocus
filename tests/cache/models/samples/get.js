@@ -21,6 +21,9 @@ const expect = require('chai').expect;
 
 describe(`api::redisEnabled::GET ${path}`, () => {
   let token;
+  const s1s2a1 = '___Subject1.___Subject2|___Aspect1';
+  const s1s2a2 = '___Subject1.___Subject2|___Aspect2';
+  const s1s3a1 = '___Subject1.___Subject3|___Aspect1';
 
   before((done) => {
     tu.toggleOverride('enableRedisSampleStore', true);
@@ -33,10 +36,10 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   before(rtu.populateRedis);
-  // after(rtu.forceDelete);
+  after(rtu.forceDelete);
   after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
-  it('basic get, sorted lexicographically by default', (done) => {
+  it('basic get all, sorted lexicographically by default', (done) => {
     api.get(path)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
@@ -46,18 +49,36 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       }
 
       expect(res.body.length).to.be.equal(3);
-      expect(res.body[0].name).to.be
-      .equal('___Subject1.___Subject2|___Aspect1');
-      expect(res.body[1].name).to.be
-      .equal('___Subject1.___Subject2|___Aspect2');
-      expect(res.body[2].name).to.be
-      .equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body[0].name).to.be.equal(s1s2a1);
+      expect(res.body[1].name).to.be.equal(s1s2a2);
+      expect(res.body[2].name).to.be.equal(s1s3a1);
       expect(res.body[0].status).to.be.equal('Critical');
       expect(res.body[0].value).to.be.equal('0');
       expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
       expect(res.body[0].relatedLinks).to.be.eql([
         { name: 'Salesforce', value: 'http://www.salesforce.com' },
       ]);
+      done();
+    });
+  });
+
+  it('get all, with sort option', (done) => {
+    api.get(`${path}?sort=value`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.length).to.be.equal(3);
+      expect(res.body[0].name).to.be.equal(s1s2a1);
+      expect(res.body[1].name).to.be.equal(s1s3a1);
+      expect(res.body[2].name).to.be.equal(s1s2a2);
+      expect(res.body[0].value).to.be.equal('0');
+      expect(res.body[1].value).to.be.equal('5');
+      expect(res.body[2].value).to.be.equal('50');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
       done();
     });
   });
@@ -72,12 +93,9 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       }
 
       expect(res.body.length).to.be.equal(3);
-      expect(res.body[0].name).to.be
-      .equal('___Subject1.___Subject2|___Aspect1');
-      expect(res.body[1].name).to.be
-      .equal('___Subject1.___Subject2|___Aspect2');
-      expect(res.body[2].name).to.be
-      .equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body[0].name).to.be.equal(s1s2a1);
+      expect(res.body[1].name).to.be.equal(s1s2a2);
+      expect(res.body[2].name).to.be.equal(s1s3a1);
       expect(res.body[0].status).to.be.equal('Critical');
       expect(res.body[0].value).to.be.undefined;
       expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
@@ -87,7 +105,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   it('get all, with limit filter', (done) => {
-    api.get(`${path}?limit=1&offset=1`)
+    api.get(`${path}?limit=1`)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
     .end((err, res) => {
@@ -96,10 +114,25 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       }
 
       expect(res.body.length).to.be.equal(1);
-      expect(res.body[0].name).to.be
-      .equal('___Subject1.___Subject2|___Aspect2');
-      expect(res.body[0].status).to.be.equal('OK');
-      expect(res.body[0].aspect.name).to.be.equal('___Aspect2');
+      expect(res.body[0].name).to.be.equal(s1s2a1);
+      expect(res.body[0].status).to.be.equal('Critical');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
+      done();
+    });
+  });
+
+  it('get all, with offset filter', (done) => {
+    api.get(`${path}?offset=1`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.length).to.be.equal(2);
+      expect(res.body[0].name).to.be.equal(s1s2a2);
+      expect(res.body[1].name).to.be.equal(s1s3a1);
       done();
     });
   });
@@ -114,19 +147,17 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       }
 
       expect(res.body.length).to.be.equal(2);
-      expect(res.body[0].name).to.be
-      .equal('___Subject1.___Subject2|___Aspect1');
-      expect(res.body[1].name).to.be
-      .equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body[0].name).to.be.equal(s1s2a1);
+      expect(res.body[1].name).to.be.equal(s1s3a1);
       expect(res.body[0].status).to.be.equal('Critical');
       expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
       done();
     });
   });
 
-  it('get all, with combined filters, no sort', (done) => {
-    const filterstr = 'limit=1&offset=1&name=___Subject1.___Subject2*&' +
-    'fields=name,status';
+  it.only('get all, with combined filters', (done) => {
+    const filterstr = 'limit=3&offset=1&name=___Subject1.___Subject2*&' +
+    'fields=value,status&sort=value';
     api.get(`${path}?${filterstr}`)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
@@ -135,11 +166,11 @@ describe(`api::redisEnabled::GET ${path}`, () => {
         done(err);
       }
 
+      console.log(res.body);
       expect(res.body.length).to.be.equal(1);
-      expect(res.body[0].name).to.be
-      .equal('___Subject1.___Subject2|___Aspect2');
-      expect(res.body[0].status).to.be.equal('OK');
-      expect(res.body[0].aspect.name).to.be.equal('___Aspect2');
+      expect(res.body[0].name).to.be.equal(s1s3a1);
+      expect(res.body[0].status).to.be.equal('Invalid');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
       expect(res.body[0].relatedLinks).to.be.undefined;
       expect(res.body[0].value).to.be.undefined;
       done();
@@ -147,7 +178,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   it('basic get by name', (done) => {
-    const sampleName = '___Subject1.___Subject3|___Aspect1';
+    const sampleName = s1s3a1;
     api.get(`${path}/${sampleName}`)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
@@ -156,7 +187,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
         done(err);
       }
 
-      expect(res.body.name).to.be.equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body.name).to.be.equal(s1s3a1);
       expect(res.body.status).to.be.equal('Invalid');
       expect(res.body.value).to.be.equal('5');
       expect(res.body.relatedLinks).to.be.eql([
@@ -195,7 +226,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   it('get by name, with fields filter', (done) => {
-    const sampleName = '___Subject1.___Subject3|___Aspect1';
+    const sampleName = s1s3a1;
     api.get(`${path}/${sampleName}?fields=name,value`)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
@@ -204,7 +235,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
         done(err);
       }
 
-      expect(res.body.name).to.be.equal('___Subject1.___Subject3|___Aspect1');
+      expect(res.body.name).to.be.equal(s1s3a1);
       expect(res.body.status).to.be.undefined;
       expect(res.body.value).to.be.equal('5');
       expect(res.body.relatedLinks).to.be.undefined;
@@ -220,7 +251,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   it('get by name with incorrect fields filter gives error', (done) => {
-    const sampleName = '___Subject1.___Subject3|___Aspect1';
+    const sampleName = s1s3a1;
     api.get(`${path}/${sampleName}?fields=name,y`)
     .set('Authorization', token)
     .expect(constants.httpStatus.BAD_REQUEST)

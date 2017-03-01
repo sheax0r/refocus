@@ -175,13 +175,13 @@ module.exports = {
     const aspectName = sampleName.split('|')[ONE];
     const commands = [];
 
-    // get sample
+    // push command to get sample
     commands.push([
       'hgetall',
       sampleStore.toKey(constants.objectType.sample, sampleName),
     ]);
 
-    // get aspect
+    // push command to get aspect
     commands.push([
       'hgetall',
       sampleStore.toKey(constants.objectType.aspect, aspectName),
@@ -191,19 +191,18 @@ module.exports = {
     .then((responses) => {
       resultObj.dbTime = new Date() - resultObj.reqStartTime; // log db time
       const sample = responses[ZERO];
+      const aspect = responses[ONE];
 
-      // apply field list filter
+      // apply fields list filter
       if (opts.attributes) {
         Object.keys(sample).forEach((sampField) => {
-          if (!opts.attributes[sampField]) {
+          if (!opts.attributes.includes(sampField)) {
             delete sample[sampField];
           }
         });
       }
 
-      const aspect = responses[ONE];
-
-      // clean and attach aspect to sample
+      // clean and attach aspect to sample, add api links as well
       const sampleRes = cleanAddAspectToSample(
         sample, aspect, res.method
       );
@@ -231,23 +230,23 @@ module.exports = {
     // get all Samples sorted lexicographically
     redisClient.sortAsync(constants.indexKey.sample, 'alpha')
     .then((allSampKeys) => {
-      let sampKeys;
+      let filteredSampKeys = allSampKeys;
 
       // apply limit and offset if no sort order defined
       if (!opts.order) {
-        sampKeys = applyLimitAndOffset(opts, allSampKeys);
+        filteredSampKeys = applyLimitAndOffset(opts, allSampKeys);
       }
      
       // apply wildcard expr on name, if specified
       if (opts.filter && opts.filter.name) {
         const filteredKeys = filterByFieldWildCardExpr(
-          sampKeys, opts.filter.name
+          filteredSampKeys, opts.filter.name
         );
-        sampKeys = filteredKeys;
+        filteredSampKeys = filteredKeys;
       }
 
       // add to commands
-      sampKeys.forEach((sampKey) => {
+      filteredSampKeys.forEach((sampKey) => {
         sampleCmds.push(['hgetall', sampKey]); // get sample
       });
 
@@ -268,11 +267,11 @@ module.exports = {
         redisClient.batch(aspectCmds).execAsync(),
       ]);
     })
-    .then((sampleAndAspects) => {
+    .then((sampleAndAspects) => { // samples and aspects
       resultObj.dbTime = new Date() - resultObj.reqStartTime; // log db time
       const samples = sampleAndAspects[ZERO];
       const aspects = sampleAndAspects[ONE];
-      let filteredSamples;
+      let filteredSamples = samples;
 
       // apply wildcard expr if other than name because
       // name filter was applied before redis call
@@ -298,27 +297,27 @@ module.exports = {
         filteredSamples = slicedSampObjs;
       }
 
-      // apply field list filter
-      if (opts.attributes) {
-        filteredSamples.forEach((sample) => {
+      filteredSamples.forEach((sample) => {
+        // apply field list filter
+        if (opts.attributes) {
           Object.keys(sample).forEach((sampField) => {
-            if (!opts.attributes[sampField]) {
+            if (!opts.attributes.includes(sampField)) {
               delete sample[sampField];
             }
           });
+        }
 
-          // find aspect in aspect response
-          const sampleAspect = aspects.find((aspect) =>
-            aspect.name === sample.split('|')[ONE]
-          );
+        // find aspect in aspect response
+        const sampleAspect = aspects.find((aspect) =>
+          aspect.name === sample.name.split('|')[ONE]
+        );
 
-          // attach aspect to sample
-          const resSampAsp = cleanAddAspectToSample(
-            sample, sampleAspect, res.method
-          );
-          response.push(resSampAsp); // add sample to response
-        });
-      }
+        // attach aspect to sample
+        const resSampAsp = cleanAddAspectToSample(
+          sample, sampleAspect, res.method
+        );
+        response.push(resSampAsp); // add sample to response
+      });
     })
     .then(() => {
       u.logAPI(req, resultObj, response); // audit log
