@@ -36,7 +36,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   before(rtu.populateRedis);
-  // after(rtu.forceDelete);
+  after(rtu.forceDelete);
   after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
   it('basic get all, sorted lexicographically by default', (done) => {
@@ -62,8 +62,8 @@ describe(`api::redisEnabled::GET ${path}`, () => {
     });
   });
 
-  it('get all, with sort option', (done) => {
-    api.get(`${path}?sort=value`)
+  it('get all, with sort option, default asc', (done) => {
+    api.get(`${path}?sort=status,value`)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
     .end((err, res) => {
@@ -72,13 +72,34 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       }
 
       expect(res.body.length).to.be.equal(3);
-      expect(res.body[0].name).to.be.equal(s1s2a1);
-      expect(res.body[1].name).to.be.equal(s1s3a1);
-      expect(res.body[2].name).to.be.equal(s1s2a2);
+      expect(res.body[0].status).to.be.equal('Critical');
+      expect(res.body[1].status).to.be.equal('Invalid');
+      expect(res.body[2].status).to.be.equal('OK');
       expect(res.body[0].value).to.be.equal('0');
       expect(res.body[1].value).to.be.equal('5');
       expect(res.body[2].value).to.be.equal('50');
       expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
+      done();
+    });
+  });
+
+  it('get all, with sort option, default desc', (done) => {
+    api.get(`${path}?sort=-status,value`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.OK)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.length).to.be.equal(3);
+      expect(res.body[0].status).to.be.equal('OK');
+      expect(res.body[1].status).to.be.equal('Invalid');
+      expect(res.body[2].status).to.be.equal('Critical');
+      expect(res.body[0].value).to.be.equal('50');
+      expect(res.body[1].value).to.be.equal('5');
+      expect(res.body[2].value).to.be.equal('0');
+      expect(res.body[0].aspect.name).to.be.equal('___Aspect2');
       done();
     });
   });
@@ -138,7 +159,7 @@ describe(`api::redisEnabled::GET ${path}`, () => {
   });
 
   it('get all, with name filter', (done) => {
-    api.get(`${path}?name=___Subject1.___Subject2*`)
+    api.get(`${path}?name=___Subject1.___Subject2*&status=*cal`)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
     .end((err, res) => {
@@ -146,18 +167,17 @@ describe(`api::redisEnabled::GET ${path}`, () => {
         done(err);
       }
 
-      expect(res.body.length).to.be.equal(2);
+      expect(res.body.length).to.be.equal(1);
       expect(res.body[0].name).to.be.equal(s1s2a1);
-      expect(res.body[1].name).to.be.equal(s1s3a1);
       expect(res.body[0].status).to.be.equal('Critical');
       expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
       done();
     });
   });
 
-  it.only('get all, with combined filters', (done) => {
-    const filterstr = 'limit=3&offset=1&name=___Subject1.___Subject2*&' +
-    'fields=value,status&sort=value';
+  it('get all, with combined filters', (done) => {
+    const filterstr = 'limit=5&offset=1&name=___Subject1.___Subject2*&' +
+    'sort=-value,status&fields=name,status,value';
     api.get(`${path}?${filterstr}`)
     .set('Authorization', token)
     .expect(constants.httpStatus.OK)
@@ -166,18 +186,17 @@ describe(`api::redisEnabled::GET ${path}`, () => {
         done(err);
       }
 
-      console.log(res.body);
       expect(res.body.length).to.be.equal(1);
-      expect(res.body[0].name).to.be.equal(s1s3a1);
-      expect(res.body[0].status).to.be.equal('Invalid');
+      expect(res.body[0].name).to.be.equal(s1s2a1);
+      expect(res.body[0].status).to.be.equal('Critical');
       expect(res.body[0].aspect.name).to.be.equal('___Aspect1');
       expect(res.body[0].relatedLinks).to.be.undefined;
-      expect(res.body[0].value).to.be.undefined;
+      expect(res.body[0].value).to.be.equal('0');
       done();
     });
   });
 
-  it('basic get by name', (done) => {
+  it('basic get by name, OK', (done) => {
     const sampleName = s1s3a1;
     api.get(`${path}/${sampleName}`)
     .set('Authorization', token)
@@ -222,6 +241,36 @@ describe(`api::redisEnabled::GET ${path}`, () => {
       ]);
       expect(res.body.aspect.criticalRange).to.be.eql([0, 1]);
       done();
+    });
+  });
+
+  it('get by name, wrong name', (done) => {
+    const sampleName = 'abc';
+    api.get(`${path}/${sampleName}`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.NOT_FOUND)
+    .end((err, res) => {
+      if (err) {
+        return done(err);
+      }
+
+      expect(res.body.errors[0].description).to.be.equal('Incorrect sample name.');
+      return done();
+    });
+  });
+
+  it('get by name, sample not found', (done) => {
+    const sampleName = 'abc|xyz';
+    api.get(`${path}/${sampleName}`)
+    .set('Authorization', token)
+    .expect(constants.httpStatus.NOT_FOUND)
+    .end((err, res) => {
+      if (err) {
+        done(err);
+      }
+
+      expect(res.body.errors[0].description).to.be.equal('Sample/Aspect not found.');
+      return done();
     });
   });
 
