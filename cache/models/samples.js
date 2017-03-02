@@ -143,19 +143,18 @@ function applyLimitAndOffset(opts, sampArr) {
  * @param  {Boolean} isArrObjs [description]
  * @return {[type]}            [description]
  */
-function filterByFieldWildCardExpr(sampArr, propVal) {
-  const re = new RegExp(propVal.toLowerCase(), 'g');
-  return sampArr.filter((samp) => {
-    let sampName;
-
-    // array of sample objects
-    if (samp.name) {
-      sampName = samp.name;
-    } else { // array of sample keys
-      sampName = sampleStore.getNameFromKey(samp);
+function filterByFieldWildCardExpr(sampArr, prop, propExpr) {
+  // regex to match wildcard expr, i option means case insensitive
+  const re = new RegExp('^' + propExpr.split('*').join('.*') + '$', 'i');
+  return sampArr.filter((sampEntry) => {
+    if (sampEntry[prop]) {
+      return re.test(sampEntry[prop]);
+    } else if (prop === 'name') {
+      const sampName = sampleStore.getNameFromKey(sampEntry);
+      return re.test(sampName);
     }
 
-    return re.test(sampName);
+    return false;
   });
 }
 
@@ -214,7 +213,12 @@ module.exports = {
   },
 
   /**
-   * Finds zero or more samples from redis and sends them back in the response.
+   * Finds samples with filter options if provided. We get sample keys from
+   * redis using default alphabetical order. Then we apply limit/offset and
+   * wildcard expr on sample names. The filtered keys are pushed to redis
+   * commands to get sample objects from redis. After getting all samples, we
+   * apply wildcrad expr (other than name), then we sort, then apply
+   * limit/offset and finally field list filters. Then get aspect 
    *
    * @param {IncomingMessage} req - The request object
    * @param {ServerResponse} res - The response object
@@ -240,7 +244,7 @@ module.exports = {
       // apply wildcard expr on name, if specified
       if (opts.filter && opts.filter.name) {
         const filteredKeys = filterByFieldWildCardExpr(
-          filteredSampKeys, opts.filter.name
+          filteredSampKeys, 'name', opts.filter.name
         );
         filteredSampKeys = filteredKeys;
       }
@@ -280,7 +284,7 @@ module.exports = {
         Object.keys(filterOptions).forEach((field) => {
           if (field !== 'name') {
             const filteredKeys = filterByFieldWildCardExpr(
-              samples, filterOptions[field]
+              samples, field, filterOptions[field]
             );
             filteredSamples = filteredKeys;
           }
@@ -298,6 +302,8 @@ module.exports = {
       }
 
       filteredSamples.forEach((sample) => {
+        const sampleName = sample.name;
+
         // apply field list filter
         if (opts.attributes) {
           Object.keys(sample).forEach((sampField) => {
@@ -309,7 +315,7 @@ module.exports = {
 
         // find aspect in aspect response
         const sampleAspect = aspects.find((aspect) =>
-          aspect.name === sample.name.split('|')[ONE]
+          aspect.name === sampleName.split('|')[ONE]
         );
 
         // attach aspect to sample
