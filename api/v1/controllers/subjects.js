@@ -31,10 +31,8 @@ const u = require('../helpers/verbs/utils');
 const httpStatus = require('../constants').httpStatus;
 const apiErrors = require('../apiErrors');
 const logAuditAPI = require('../../../utils/loggingUtil').logAuditAPI;
-const redisSubjectModel = require('../../../cache/models/subject');
-const sampleStoreFeature =
-                  require('../../../cache/sampleStore').constants.featureName;
 const ZERO = 0;
+const ONE = 1;
 
 /**
  * Validates the correct filter parameter
@@ -201,11 +199,7 @@ module.exports = {
       }
     }
 
-    const findByKeyPromise =
-      featureToggles.isFeatureEnabled(sampleStoreFeature) ?
-            u.findByKey(helper, params, ['hierarchy']) :
-              u.findByKey(helper, params, ['hierarchy', 'samples']);
-    findByKeyPromise
+    u.findByKey(helper, params, ['hierarchy', 'samples'])
     .then((o) => {
       resultObj.dbTime = new Date() - resultObj.reqStartTime;
       let retval = u.responsify(o, helper, req.method);
@@ -213,18 +207,9 @@ module.exports = {
         retval = helper.deleteChildren(retval, depth);
       }
 
-      // if samples are stored in redis, get the samples from there.
-      if (featureToggles.isFeatureEnabled(sampleStoreFeature)) {
-        redisSubjectModel.completeSubjectHierarchy(retval, params)
-        .then((_retval) => {
-          u.logAPI(req, resultObj, _retval);
-          res.status(httpStatus.OK).json(_retval);
-        });
-      } else {
-        retval = helper.modifyAPIResponse(retval, params);
-        u.logAPI(req, resultObj, retval);
-        res.status(httpStatus.OK).json(retval);
-      }
+      retval = helper.modifyAPIResponse(retval, params);
+      u.logAPI(req, resultObj, retval);
+      res.status(httpStatus.OK).json(retval);
     })
     .catch((err) => u.handleError(next, err, helper.modelName));
   }, // getSubjectHierarchy
