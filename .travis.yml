@@ -19,6 +19,7 @@ services:
   - redis-server
 
 script:
+  - npm --depth 9999 update minimatch
   - npm run jscs-enforce
   - npm run checkdb
   - npm test
