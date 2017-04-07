@@ -50,6 +50,7 @@ seq.query(`select count(*) from
   information_schema.tables where table_schema = 'public'`)
 .then((data) => {
   if (data[0][0].count === '0') { // eslint-disable-line
+    console.log('#### The database exists but the table schemas do not exist.');
     // The database exists but the table schemas do not exist.
     u.reset()
     .then((res) => {

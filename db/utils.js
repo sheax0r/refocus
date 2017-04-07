@@ -167,6 +167,7 @@ function clog(moduleName, functionName, msg) {
  * @returns {Promise} - Resolves to success message or throws error.
  */
 function createOrDropDb(cmd) {
+  console.log('##### createOrDropDb');
   const dbConfig = dbConfigObjectFromDbURL();
   return cmd(dbConfig, dbConfig.name)
   .then((res) => `${res.command} "${dbConfig.name}"... OK`)
@@ -182,6 +183,7 @@ function createOrDropDb(cmd) {
  * @returns {Promise}
  */
 function initializeAdminUserAndProfile() {
+  console.log('##### initializeAdminUserAndProfile');
   const profileFinder = {
     where: { name: { $iLike: conf.db.adminProfile.name } },
   };
@@ -217,6 +219,7 @@ function initializeAdminUserAndProfile() {
  * @returns {Promise} - Resolves to on OK message on completion or rejects.
  */
 function setMigrations() {
+  console.log('##### setMigrations');
   const migrationPath = path.resolve('migrations');
   return new seq.Promise((resolve, reject) => {
     fs.readdir(migrationPath, (err, items) => {
@@ -261,6 +264,7 @@ function isJavascriptFile(file) {
  * @returns {Promise} Resolves to object containing all the models.
  */
 function doImport() {
+  console.log('##### doImport');
   const dir = path.join(__dirname, conf.db.modelDirName);
   fs.readdirSync(dir) // eslint-disable-line no-sync
   .map((f) => path.join(dir, f))
@@ -291,6 +295,7 @@ function doImport() {
  * @returns {Promise} - Resolves OK or rejects.
  */
 function importSyncInitialize(force) {
+  console.log('##### importSyncInitialize');
   return doImport()
   .then((res) => {
     clog('utils', 'importSyncInitialize', res);
@@ -316,6 +321,7 @@ function importSyncInitialize(force) {
  * @returns {Promise} resolves OK or throws error.
  */
 function reset() {
+  console.log('##### reset');
   return importSyncInitialize(true)
   .then(() => seq.query(SQL_DROP_SEQUELIZE_META))
   .then(() => seq.query(SQL_CREATE_SEQUELIZE_META))
