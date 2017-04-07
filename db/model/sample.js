@@ -347,17 +347,7 @@ module.exports = function sample(seq, dataTypes) {
 
     }, // hooks
     indexes: [
-      {
-        name: 'AspectIdSubjectId',
-        unique: true,
-        fields: ['aspectId', 'subjectId'],
-      },
-      {
-        name: 'SampleStatusIdx',
-        fields: [
-          'status',
-        ],
-      },
+
       {
         name: 'SampleName',
         fields: [
