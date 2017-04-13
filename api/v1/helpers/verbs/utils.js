@@ -637,6 +637,7 @@ function findAssociatedInstances(props, params, association, options) {
     findByKey(props, params)
     .then((o) => {
       if (o) {
+        console.log('-----findAssociatedInstances-----', o);
         const getAssocfuncName = `get${capitalizeFirstLetter(association)}`;
         o[getAssocfuncName](options)
         .then((assocArry) => resolve(assocArry));
