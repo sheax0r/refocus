@@ -68,6 +68,7 @@ function checkWritePermission(aspectName, sampleName, userName, isBulk) {
                           aspectName, userName) : Promise.resolve(true);
   return hasWritePerm
     .then((ok) => {
+      console.log('#####hasWritePerm: ' + ok);
       // reject the promise if the user does not have write permission
       if (!ok) {
         const err = new redisErrors.UpdateDeleteForbidden({
@@ -81,6 +82,7 @@ function checkWritePermission(aspectName, sampleName, userName, isBulk) {
         return Promise.reject(err);
       }
 
+      console.log('#####hasWritePerm: returned true');
       return Promise.resolve(true);
     });
 }
@@ -442,6 +444,7 @@ function upsertOneSample(sampleQueryBodyObj, isBulk, userName) {
     redisClient.hgetallAsync(sampleKey),
   ]))
   .then((responses) => {
+    console.log('##### Got responses');
     const [subject, aspect, sample] = responses;
     if (!subject) {
       handleUpsertError(constants.objectType.subject, isBulk);
@@ -475,10 +478,12 @@ function upsertOneSample(sampleQueryBodyObj, isBulk, userName) {
   .then(() => redisOps.addAspectNameToSubject(subjKey, subjectId, aspectName))
   .then(() => redisClient.hgetallAsync(sampleKey))
   .then((updatedSamp) => {
+    console.log('##### NO err');
     updatedSamp.subjectId = subjectId;
     return cleanAddAspectToSample(updatedSamp, aspectObj);
   })
   .catch((err) => {
+    console.log('##### err' + err);
     if (isBulk) {
       return err;
     }

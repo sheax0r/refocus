@@ -51,6 +51,7 @@ jobQueue.process(jobType.BULKUPSERTSAMPLES, (job, done) => {
 
   let bulkUpsertPromise;
   if (featureToggles.isFeatureEnabled('enableRedisSampleStore')) {
+    console.log('##### Calling cacheSampleModel.bulkUpsertSample');
     bulkUpsertPromise = cacheSampleModel.bulkUpsertSample(samples, userName);
   } else {
     bulkUpsertPromise = helper.model.bulkUpsertByName(samples, userName);
