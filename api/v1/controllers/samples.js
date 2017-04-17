@@ -201,7 +201,7 @@ module.exports = {
    *  bulk upsert request has been received.
    */
   bulkUpsertSample(req, res/* , next */) {
-
+    console.log('##### bulkUpsertSample');
     const resultObj = { reqStartTime: new Date() };
     const reqStartTime = Date.now();
     const value = req.swagger.params.queryBody.value;

@@ -212,7 +212,9 @@ function isWritable(req, modelInst, isEnabled) {
  */
 function getUserNameFromToken(req, doDecode) {
   return new Promise((resolve, reject) => {
+    console.log('##### getUserNameFromToken');
     if (!doDecode) {
+      console.log('##### getUserNameFromToken true');
       resolve(true);
     }
 
