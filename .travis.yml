@@ -21,4 +21,4 @@ services:
 script:
   - npm run jscs-enforce
   - npm run checkdb
-  - npm run test-rooms
+  - npm test
