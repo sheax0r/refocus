@@ -146,7 +146,8 @@ function start() { // eslint-disable-line max-statements
   app.set('views', path.join(__dirname, 'view'));
   app.set('view engine', 'pug');
 
-  console.log("In index: " + conf.api.swagger.doc);
+  console.log('In index: ' + conf.api.swagger.doc);
+
   // Initialize the Swagger middleware
   const swaggerFile = fs // eslint-disable-line no-sync
     .readFileSync(conf.api.swagger.doc, ENCODING);

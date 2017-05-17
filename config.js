@@ -36,8 +36,9 @@ const DEFAULT_DB_CONNECTION_POOL = { // sequelize defaults
   idle: 10000,
 };
 
-console.log(">>>>>> In config");
+console.log('>>>>>> In config');
 console.log(featureToggles.isFeatureEnabled('enableRooms'));
+
 // Enable Rooms Routes
 const swagger = featureToggles.isFeatureEnabled('enableRooms') ?
   './api/v1/rooms-swagger.yaml' : './api/v1/swagger.yaml';
