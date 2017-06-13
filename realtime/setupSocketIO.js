@@ -92,6 +92,7 @@ function setupNamespace(io) {
  */
 function init(io, redisStore) {
   io.sockets.on('connection', (socket) => {
+    console.log('connection happened with the client');
     // Socket handshake must have "cookie" header with connect.sid.
     if (!socket.handshake.headers.cookie) {
       // disconnecting socket -- expecting header with cookie
@@ -177,7 +178,6 @@ function init(io, redisStore) {
                 }
               }); // redisClient.del
             }
-
           }); // redisClient.get
         }); // on disconnect
       } // if logEnabled

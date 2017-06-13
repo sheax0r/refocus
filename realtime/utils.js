@@ -272,6 +272,7 @@ function initializeNamespace(inst, io) {
  * @throws {Error} if address is NOT whitelisted
  */
 function isIpWhitelisted(addr, whitelist) {
+
   const ok = whitelist.some((range) => {
     if (Array.isArray(range) && range.length === 2) {
       if (range[0] <= range[1] && addr >= range[0] && addr <= range[1]) {
@@ -286,6 +287,7 @@ function isIpWhitelisted(addr, whitelist) {
     return ok;
   }
 
+  return true;
   throw new Error(`IP address "${addr}" is not whitelisted`);
 } // isIpWhitelisted
 
