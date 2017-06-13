@@ -93,10 +93,12 @@ function setupNamespace(io) {
 function init(io, redisStore) {
   io.sockets.on('connection', (socket) => {
     console.log('connection happened with the client');
+
     // Socket handshake must have "cookie" header with connect.sid.
     if (!socket.handshake.headers.cookie) {
       // disconnecting socket -- expecting header with cookie
-      console.log('socketIO disconnected because cookie is null-----', socket.handshake.headers);
+      console.log('socketIO disconnected because cookie is ' +
+        'null-----', socket.handshake.headers);
       socket.disconnect();
       return;
     } // no cookie
@@ -105,7 +107,8 @@ function init(io, redisStore) {
     const sidMatch = SID_REX.exec(socket.handshake.headers.cookie);
     if (!sidMatch || sidMatch.length < 2) {
       // disconnecting socket -- expecting session id in cookie header
-      console.log('socketIO disconnected because cookie is regex does not match-----', sidMatch.length);
+      console.log('socketIO disconnected because cookie is regex does ' +
+        ' not match-----', sidMatch.length);
       socket.disconnect();
       return;
     }
