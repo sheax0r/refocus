@@ -229,7 +229,7 @@ function init(io, redisStore) {
         redisClient.getAsync(perspKey)
         .then((numOfConn) => {
           if (numOfConn <= ONE) { // delete namespace and redis entry
-            redisClient.delAsync(perspKey)
+            return redisClient.delAsync(perspKey)
             .then(() => perspective.findOne({ where: { name: perspName } }))
             .then((perspObj) => {
               if (perspObj) {
