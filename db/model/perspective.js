@@ -16,7 +16,7 @@ const MissingRequiredFieldError = require('../dbErrors')
   .MissingRequiredFieldError;
 const constants = require('../constants');
 const assoc = {};
-const eventName = 'refocus.internal.realtime.perspective.namespace.initialize';
+const eventName = require('../../config').redis.perspInitEventName;
 
 module.exports = function perspective(seq, dataTypes) {
   const Perspective = seq.define('Perspective', {

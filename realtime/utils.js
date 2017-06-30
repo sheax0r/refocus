@@ -265,6 +265,19 @@ function initializeNamespace(inst, io) {
 }
 
 /**
+ * Deletes the namespace from socket io.
+ * @param {Instance} inst - The perspective instance.
+ * @param {Socket.io} io - The socketio's server side object
+ * @returns {Set} - The socketio server side object with the namespace
+ * deleted
+ */
+function deleteNamespace(inst, io) {
+  const nspString = getNamespaceString(inst);
+  delete io.nsps[nspString];
+  return io;
+}
+
+/**
  * Utility function checks an ip address against a whitelist.
  *
  * @param {String} addr - The address to test
@@ -308,4 +321,5 @@ module.exports = {
   isIpWhitelisted,
   parseObject,
   shouldIEmitThisObj,
+  deleteNamespace,
 }; // exports

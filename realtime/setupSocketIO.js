@@ -24,6 +24,7 @@ const logEnabled =
   featureToggles.isFeatureEnabled('enableRealtimeActivityLogs');
 const ONE = 1;
 const SID_REX = /connect.sid=s%3A([^\.]*)\./;
+const activePerspPrefix = 'activePersp:';
 
 /**
  * Load the authenticated user name from the session id.
@@ -63,20 +64,83 @@ function getUserFromSession(sid, redisStore) {
  */
 function setupNamespace(io) {
   return new Promise((resolve, reject) => {
-    perspective.findAll()
-    .then((objArr) => {
-      if (objArr) {
-        objArr.forEach((o) => rtUtils.initializeNamespace(o, io));
-        resolve(io);
-      } else {
-        const err = new ResourceNotFoundError();
-        err.resourceType = 'Perspective';
-        throw err;
-      }
+    // get all keys starting with activePersp: from redis
+    redisClient.keysAsync(`${activePerspPrefix}*`)
+    .then((keys) => {
+      const promiseArr = [];
+      keys.forEach((key) => {
+        const promise = redisClient.getAsync(key)
+          .then((numOpenClients) => {
+            // redis key example, activePersp:nameOfPerspective
+            const keySplitArr = key.split(':');
+
+            /*
+             If number of open clients for a perspective are > 0 and valid
+              key, get the perspective object from db and initialize namespace.
+            */
+            if ((numOpenClients > 0) && (keySplitArr.length > 1)) {
+              const perspName = keySplitArr[1];
+              perspective.findOne({ where: { name: perspName } })
+              .then((perspObj) => {
+                if (perspObj) {
+                  rtUtils.initializeNamespace(perspObj, io);
+                } else {
+                  const err = new ResourceNotFoundError();
+                  err.resourceType = 'Perspective';
+                  throw err;
+                }
+              });
+            }
+          });
+        promiseArr.push(promise);
+      });
+
+      Promise.all(promiseArr)
+      .then(resolve(io))
+      .catch(reject);
     })
     .catch(reject);
   });
 } // setupNamespace
+
+/**
+ * Retrieve logging info for socket from redis and print realtime logs.
+ * @param  {Object} socket - Socket object
+ */
+function printRealtimeLogs(socket) {
+  // Retrieve the logging info for this socket.
+  redisClient.get(socket.id, (getErr, getResp) => {
+    if (getErr) {
+      console.log('Error ' + // eslint-disable-line no-console
+        `retrieving socket id ${socket.id} from redis on client ` +
+        'disconnect:', getErr);
+    } else { // eslint-disable-line lines-around-comment
+      /*
+       * Calculate the totalTime and write out the log line. If redis
+       * was flushed by an admin, the response here will be empty, so
+       * just skip the logging.
+       */
+      const d = JSON.parse(getResp);
+      if (d && d.starttime) {
+        d.totalTime = (Date.now() - d.starttime) + 'ms';
+        activityLogUtil.printActivityLogString(d, 'realtime');
+      }
+
+      // Remove the redis key for this socket.
+      redisClient.del(socket.id, (delErr, delResp) => {
+        if (delErr) {
+          console.log('Error ' + // eslint-disable-line no-console
+            `deleting socket id ${socket.id} from redis on ` +
+            'client disconnect:', delErr);
+        } else if (delResp !== ONE) {
+          console.log('Expecting' + // eslint-disable-line no-console
+            `unique socket id ${socket.id} to delete from redis on ` +
+            `client disconnect, but ${delResp} were deleted.`);
+        }
+      }); // redisClient.del
+    }
+  }); // redisClient.get
+}
 
 /**
  * Set up a namespace for each perspective. On socket connect, start tracking
@@ -150,53 +214,78 @@ function init(io, redisStore) {
         }
 
         redisClient.set(socket.id, JSON.stringify(toLog));
+      }
 
-        socket.on('disconnect', () => {
-          // Retrieve the logging info for this socket.
-          redisClient.get(socket.id, (getErr, getResp) => {
-            if (getErr) {
-              console.log('Error ' + // eslint-disable-line no-console
-                `retrieving socket id ${socket.id} from redis on client ` +
-                'disconnect:', getErr);
-            } else { // eslint-disable-line lines-around-comment
-              /*
-               * Calculate the totalTime and write out the log line. If redis
-               * was flushed by an admin, the response here will be empty, so
-               * just skip the logging.
-               */
-              const d = JSON.parse(getResp);
-              if (d && d.starttime) {
-                d.totalTime = (Date.now() - d.starttime) + 'ms';
-                activityLogUtil.printActivityLogString(d, 'realtime');
+      const perspName = socket.handshake.query.p;
+      const perspKey = `${activePerspPrefix}${perspName}`;
+
+      socket.on('disconnect', () => {
+        /*
+          Get the perspective entry from redis. If the number of open clients
+          were <=1, then delete entry from redis, and get the perspective object
+          from db and delete the namespace from socket io and . Else, reduce
+          the number of clients in redis.
+         */
+        redisClient.getAsync(perspKey)
+        .then((numOfConn) => {
+          if (numOfConn <= ONE) { // delete namespace and redis entry
+            redisClient.delAsync(perspKey)
+            .then(() => perspective.findOne({ where: { name: perspName } }))
+            .then((perspObj) => {
+              if (perspObj) {
+                return rtUtils.deleteNamespace(perspObj, io);
               }
 
-              // Remove the redis key for this socket.
-              redisClient.del(socket.id, (delErr, delResp) => {
-                if (delErr) {
-                  console.log('Error ' + // eslint-disable-line no-console
-                    `deleting socket id ${socket.id} from redis on ` +
-                    'client disconnect:', delErr);
-                } else if (delResp !== ONE) {
-                  console.log('Expecting' + // eslint-disable-line no-console
-                    `unique socket id ${socket.id} to delete from redis on ` +
-                    `client disconnect, but ${delResp} were deleted.`);
-                }
-              }); // redisClient.del
+              const err = new ResourceNotFoundError();
+              err.resourceType = 'Perspective';
+              throw err;
+            });
+          }
+
+          // If number of conn > 1, decrement the number in redis
+          return redisClient.decrAsync(perspKey);
+        });
+
+        if (logEnabled) {
+          printRealtimeLogs(socket);
+        } // if logEnabled
+      }); // on disconnect
+
+      /*
+        Check the current open perspective in redis. If the entry does not
+        exist in redis, that means it is opened by first client. Get the
+        perspective from db and initialize namespace.
+       */
+      return redisClient.getAsync(perspKey) // update the new conn in redis
+      .then((numOfClients) => {
+        if (!numOfClients) {
+          perspective.findOne({ where: { name: perspName } })
+          .then((perspObj) => {
+            if (perspObj) {
+              return rtUtils.initializeNamespace(perspObj, io);
             }
 
-          }); // redisClient.get
-        }); // on disconnect
-      } // if logEnabled
+            const err = new ResourceNotFoundError();
+            err.resourceType = 'Perspective';
+            throw err;
+          });
+        }
 
-      return setupNamespace(io);
+        // increment the key in both cases. If new redis record, it will be
+        // set to 1, else incremented by 1
+        return redisClient.incrAsync(perspKey)
+        .then(() => io);
+      });
     })
-    .catch((err) => {
+    .catch(() => {
       // no realtime events :(
       // console.log('[WSDEBUG] caught error', err);
       socket.disconnect();
       return;
     });
   }); // on connect
+
+  return setupNamespace(io); // executes only when server starts.
 } // init
 
 module.exports = {

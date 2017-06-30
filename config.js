@@ -169,6 +169,8 @@ module.exports = {
       sampleStore: redisUrls.sampleStore,
       session: redisUrls.session,
     },
+    perspInitEventName:
+     'refocus.internal.realtime.perspective.namespace.initialize',
   },
 
   // When adding new environment, consider adding it to /config/migrationConfig
