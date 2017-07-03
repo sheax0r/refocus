@@ -71,6 +71,7 @@ function setupNamespace(io) {
       keys.forEach((key) => {
         const promise = redisClient.getAsync(key)
           .then((numOpenClients) => {
+            numOpenClients = parseInt(numOpenClients);
             // redis key example, activePersp:nameOfPerspective
             const keySplitArr = key.split(':');
 
@@ -78,7 +79,7 @@ function setupNamespace(io) {
              If number of open clients for a perspective are > 0 and valid
               key, get the perspective object from db and initialize namespace.
             */
-            if ((numOpenClients > 0) && (keySplitArr.length > 1)) {
+            if ((keySplitArr.length > 1)) {
               const perspName = keySplitArr[1];
               perspective.findOne({ where: { name: perspName } })
               .then((perspObj) => {
@@ -96,7 +97,9 @@ function setupNamespace(io) {
       });
 
       Promise.all(promiseArr)
-      .then(resolve(io))
+      .then(() => {
+        resolve(io);
+      })
       .catch(reject);
     })
     .catch(reject);
@@ -154,6 +157,7 @@ function printRealtimeLogs(socket) {
  */
 function init(io, redisStore) {
   io.sockets.on('connection', (socket) => {
+    // console.log('IO namespaces on connect >>', io.nsps);
     // Socket handshake must have "cookie" header with connect.sid.
     if (!socket.handshake.headers.cookie) {
       // disconnecting socket -- expecting header with cookie
@@ -251,15 +255,19 @@ function init(io, redisStore) {
         } // if logEnabled
       }); // on disconnect
 
+      // init namespace with all persp value 0, the on pub, go thru all and
+      // send only if 1.
+
       /*
         Check the current open perspective in redis. If the entry does not
         exist in redis, that means it is opened by first client. Get the
         perspective from db and initialize namespace.
        */
+      // return setupNamespace(io) // executes only when server starts.
       return redisClient.getAsync(perspKey) // update the new conn in redis
       .then((numOfClients) => {
         if (!numOfClients) {
-          perspective.findOne({ where: { name: perspName } })
+          return perspective.findOne({ where: { name: perspName } })
           .then((perspObj) => {
             if (perspObj) {
               return rtUtils.initializeNamespace(perspObj, io);
@@ -268,13 +276,15 @@ function init(io, redisStore) {
             const err = new ResourceNotFoundError();
             err.resourceType = 'Perspective';
             throw err;
+          })
+          .then(() => {
+            console.log('IO after init namespace for new persp >>>>', io.nsps);
+            return redisClient.incrAsync(perspKey);
           });
         }
 
-        // increment the key in both cases. If new redis record, it will be
-        // set to 1, else incremented by 1
-        return redisClient.incrAsync(perspKey)
-        .then(() => io);
+        // only increament the key
+        return redisClient.incrAsync(perspKey);
       });
     })
     .catch(() => {
@@ -285,6 +295,7 @@ function init(io, redisStore) {
     });
   }); // on connect
 
+  console.log('Calling setupNamespace....');
   return setupNamespace(io); // executes only when server starts.
 } // init
 
