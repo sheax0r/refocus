@@ -15,7 +15,7 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom';
-import ListController from './../list/ListController';
+import ListController from './../common/ListController';
 import moment from 'moment';
 
 const u = require('../../utils');

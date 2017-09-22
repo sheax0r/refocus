@@ -14,12 +14,12 @@ import React from 'react';
 import ReactTestUtils from 'react-dom/test-utils';
 import moment from 'moment';
 import { expect } from 'chai';
-import ListController from '../../../../view/rooms/list/ListController.js';
+import ListController from '../../../../view/rooms/common/ListController.js';
 
 const ZERO = 0;
 const ONE = 1;
 
-describe('tests/view/rooms/list/ListController.js, List View =>', () => {
+describe('tests/view/rooms/common/ListController.js, List View =>', () => {
   it('no table headers', () => {
     const listComponent = ReactTestUtils.renderIntoDocument(
       <ListController />
