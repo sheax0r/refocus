@@ -14,10 +14,9 @@ import React from 'react';
 import ReactTestUtils from 'react-dom/test-utils';
 import moment from 'moment';
 import { expect } from 'chai';
-import RoomTypeComponent from '../../../../view/rooms/type/RoomTypeComponent.js';
+import RoomTypeComponent from '../../../../view/rooms/types-view/RoomTypeComponent.js';
 
 const ZERO = 0;
-const ONE = 1;
 const FIVE = 5;
 
 describe('tests/view/rooms/type/RoomTypeComponentTest.js, Rendering =>', () => {
