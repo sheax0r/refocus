@@ -18,17 +18,36 @@ import moment from 'moment';
 class RoomTypeComponent extends React.Component {
   constructor(props) {
     super(props);
+    this.state = { readOnly: true };
+    this.toggleEditMode = this.toggleEditMode.bind(this);
+  }
+
+  toggleEditMode(e) {
+    e.preventDefault();
+    this.setState({
+      readOnly: !this.state.readOnly
+    });
   }
 
   render() {
     const { roomType } = this.props;
+    const { readOnly } = this.state;
     if (!roomType) return (null);
-    const buttons = (
+    return (
+      <div className='slds-form slds-form_stacked slds-grow slds-scrollable_y'>
+        { readOnly ? this.renderButtons() : this.renderEditButtons() }
+        { readOnly ? this.renderPanel(roomType) : this.renderEditPanel(roomType) }
+      </div>
+    );
+  }
+
+  renderButtons() {
+    return (
       <div className='slds-panel__section slds-border_bottom slds-border_top'>
         <div className='slds-media__body'>
           <div className='slds-button-group slds-m-top_small' role='group'>
             <button
-              disabled={ true }
+              onClick={ this.toggleEditMode }
               className='slds-button slds-button_neutral'>
                 Edit
               </button>
@@ -36,7 +55,26 @@ class RoomTypeComponent extends React.Component {
         </div>
       </div>
     );
-    const panel = (
+  }
+
+  renderEditButtons() {
+    return (
+      <div className='slds-panel__section slds-border_bottom slds-border_top'>
+        <div className='slds-media__body'>
+          <div className='slds-button-group slds-m-top_small' role='group'>
+            <button
+              onClick={ this.toggleEditMode }
+              className='slds-button slds-button_neutral'>
+                Save
+              </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  renderPanel(roomType) {
+    return (
       <div className='slds-panel__section'>
         <h3 className='slds-text-heading_small slds-m-bottom_medium'>Room Type Information</h3>
         <ul>
@@ -48,11 +86,11 @@ class RoomTypeComponent extends React.Component {
         </ul>
       </div>
     );
+  }
+
+  renderEditPanel(roomType) {
     return (
-      <div className='slds-form slds-form_stacked slds-grow slds-scrollable_y'>
-        {buttons}
-        {panel}
-      </div>
+      <h3 className='slds-text-heading_small slds-m-bottom_medium'>Lets Edit!</h3>
     );
   }
 
