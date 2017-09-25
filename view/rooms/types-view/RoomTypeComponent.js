@@ -90,7 +90,14 @@ class RoomTypeComponent extends React.Component {
 
   renderEditPanel(roomType) {
     return (
-      <h3 className='slds-text-heading_small slds-m-bottom_medium'>Lets Edit!</h3>
+      <div className='slds-panel__section'>
+        <h3 className='slds-text-heading_small slds-m-bottom_medium'>Room Type Edit</h3>
+        <ul>
+          {this.createPanelItem('Name', roomType.name)}
+          {this.createCheckboxItem('Enabled', roomType.isEnabled)}
+          {this.createMultiSelectItem('Bots', roomType.bots)}
+        </ul>
+      </div>
     );
   }
 
@@ -102,6 +109,31 @@ class RoomTypeComponent extends React.Component {
       </div>
     </li>);
   }
+
+  createCheckboxItem(state) {
+    return (
+      <li className='slds-form-element slds-hint-parent slds-border_bottom'>
+        <label className='slds-checkbox_toggle slds-grid'>
+          <input type='checkbox' name='checkbox' aria-describedby='toggle-desc' value='on' />
+          <span id='toggle-desc' className='slds-checkbox_faux_container' aria-live='assertive'>
+            <span className='slds-checkbox_faux'></span>
+            <span className='slds-checkbox_on'>Enabled</span>
+            <span className='slds-checkbox_off'>Disabled</span>
+          </span>
+        </label>
+      </li>);
+  }
+
+  createMultiSelectItem(label, selected) {
+    return (<li className='slds-form-element slds-hint-parent slds-border_bottom'>
+      <span className='slds-form-element__label'>{label}</span>
+      <div className='slds-form-element__control'>
+        <span className='slds-form-element__static'>{selected}</span>
+      </div>
+    </li>);
+  }
+
+
 }
 
 RoomTypeComponent.propTypes = {
