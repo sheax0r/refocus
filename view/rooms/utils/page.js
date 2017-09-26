@@ -25,7 +25,7 @@ module.exports = {
    * Sets page title.
    * @param  {Object} document - Document object
    * @param  {String} title - Title string to be set
-   * @returns {String} - Title string if successfull
+   * @returns {String} - Title string if successful
    */
   setTitle(title) {
     return document.getElementById(TITLE_ELEM_ID).innerHTML = title;
@@ -34,10 +34,10 @@ module.exports = {
   /**
    * Sets page subtitle.
    * @param  {Object} document - Document object
-   * @param  {String} title - Title string to be set
-   * @returns {String} - Title string if successfull
+   * @param  {String} subtitle - Title string to be set
+   * @returns {String} - subtitle string if successful
    */
-  setSubTitle(subtitle) {
+  setSubtitle(subtitle) {
     return document.getElementById(SUBTITLE_ELEM_ID).innerHTML = subtitle;
   },
 
