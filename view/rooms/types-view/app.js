@@ -23,17 +23,24 @@ import RoomTypeComponent from './RoomTypeComponent';
 
 const ROOM_TYPE_ID = window.location.pathname.split('/rooms/types/')[1];
 const GET_ROOMTYPE = '/v1/roomTypes';
+const GET_BOTS = '/v1/bots';
+
+let roomType;
 
 window.onload = () => {
   u.getPromiseWithUrl(`${GET_ROOMTYPE}/${ROOM_TYPE_ID}`)
-  .then((res) => {
-    const roomType = res.body;
+  .then(res => {
+    roomType = res.body;
     uPage.setTitle(roomType.name);
     uPage.setSubtitle(`Room Type Id: ${ROOM_TYPE_ID}`);
     uPage.removeSpinner();
+    return u.getPromiseWithUrl(GET_BOTS)
+  })
+  .then(res => {
     ReactDOM.render(
       <RoomTypeComponent
         roomType={ roomType }
+        bots={ res.body }
       />,
       roomTypeContainer
     );

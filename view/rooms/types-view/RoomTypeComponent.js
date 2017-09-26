@@ -14,11 +14,14 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import moment from 'moment';
+import BotsComponent from '../common/BotsComponent';
 
 class RoomTypeComponent extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { readOnly: true };
+    this.state = {
+      readOnly: true
+    };
     this.toggleEditMode = this.toggleEditMode.bind(this);
   }
 
@@ -30,13 +33,13 @@ class RoomTypeComponent extends React.Component {
   }
 
   render() {
-    const { roomType } = this.props;
+    const { roomType, bots } = this.props;
     const { readOnly } = this.state;
     if (!roomType) return (null);
     return (
       <div className='slds-form slds-form_stacked slds-grow slds-scrollable_y'>
         { readOnly ? this.renderButtons() : this.renderEditButtons() }
-        { readOnly ? this.renderPanel(roomType) : this.renderEditPanel(roomType) }
+        { readOnly ? this.renderPanel(roomType) : this.renderEditPanel(roomType, bots) }
       </div>
     );
   }
@@ -88,14 +91,14 @@ class RoomTypeComponent extends React.Component {
     );
   }
 
-  renderEditPanel(roomType) {
+  renderEditPanel(roomType, bots) {
     return (
       <div className='slds-panel__section'>
         <h3 className='slds-text-heading_small slds-m-bottom_medium'>Room Type Edit</h3>
         <ul>
           {this.createPanelItem('Name', roomType.name)}
           {this.createCheckboxItem('Enabled', roomType.isEnabled)}
-          {this.createMultiSelectItem('Bots', roomType.bots)}
+          {this.createPanelItem('Bots', <BotsComponent bots={ bots } selectedBots={ roomType.bots } />)}
         </ul>
       </div>
     );
@@ -113,31 +116,23 @@ class RoomTypeComponent extends React.Component {
   createCheckboxItem(state) {
     return (
       <li className='slds-form-element slds-hint-parent slds-border_bottom'>
+        <span className='slds-form-element__label'>Enabled</span>
         <label className='slds-checkbox_toggle slds-grid'>
-          <input type='checkbox' name='checkbox' aria-describedby='toggle-desc' value='on' />
+          <input type='checkbox' defaultChecked={state} name='checkbox' aria-describedby='toggle-desc' value='on' />
           <span id='toggle-desc' className='slds-checkbox_faux_container' aria-live='assertive'>
             <span className='slds-checkbox_faux'></span>
-            <span className='slds-checkbox_on'>Enabled</span>
-            <span className='slds-checkbox_off'>Disabled</span>
+            <span className='slds-checkbox_on'>True</span>
+            <span className='slds-checkbox_off'>False</span>
           </span>
         </label>
-      </li>);
+      </li>
+    );
   }
-
-  createMultiSelectItem(label, selected) {
-    return (<li className='slds-form-element slds-hint-parent slds-border_bottom'>
-      <span className='slds-form-element__label'>{label}</span>
-      <div className='slds-form-element__control'>
-        <span className='slds-form-element__static'>{selected}</span>
-      </div>
-    </li>);
-  }
-
-
 }
 
 RoomTypeComponent.propTypes = {
   roomType: PropTypes.object,
+  bots: PropTypes.array,
 };
 
 export default RoomTypeComponent;
