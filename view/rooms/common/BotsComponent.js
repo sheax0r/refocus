@@ -18,14 +18,10 @@ import moment from 'moment';
 class BotsComponent extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-      selectedBots: []
-    };
   }
 
   render() {
     const { bots, selectedBots } = this.props;
-    // this.setState({ selectedBots });
     // if (!bots.length) return (null);
     return (
       <section role='dialog' tabindex='-1' className='slds-list-builder'>
@@ -54,91 +50,58 @@ class BotsComponent extends React.Component {
             </tr>
           </thead>
           <tbody>
-            <tr className='slds-hint-parent'>
-              <td role='gridcell'
-                className='slds-text-align_right'
-                style={{width: '3.75rem;'}}>
-                <label className='slds-checkbox_toggle slds-grid'>
-                  <input type='checkbox' name='checkbox' aria-describedby='toggle-desc' value='on' />
-                  <span id='toggle-desc' className='slds-checkbox_faux_container' aria-live='assertive'>
-                    <span className='slds-checkbox_faux'></span>
-                    <span className='slds-checkbox_on'>On</span>
-                    <span className='slds-checkbox_off'>Off</span>
-                  </span>
-                </label>
-              </td>
-              <th scope='row'>
-                <div className='slds-truncate' title='commsBot'>
-                  Comms_Bot
-                </div>
-              </th>
-              <td role='gridcell'>
-                <div className='slds-truncate' title='commsBotLink'>
-                  https://git.soma/comms
-                </div>
-              </td>
-              <td role='gridcell'>
-                <div className='slds-truncate' title='commsBotActive'>true</div>
-              </td>
-            </tr>
-            <tr className='slds-hint-parent'>
-              <td role='gridcell'
-                className='slds-text-align_right'
-                style={{width: '3.75rem;'}}>
-                <label className='slds-checkbox_toggle slds-grid'>
-                  <input type='checkbox' name='checkbox' aria-describedby='toggle-desc' value='on' />
-                  <span id='toggle-desc' className='slds-checkbox_faux_container' aria-live='assertive'>
-                    <span className='slds-checkbox_faux'></span>
-                    <span className='slds-checkbox_on'>On</span>
-                    <span className='slds-checkbox_off'>Off</span>
-                  </span>
-                </label>
-              </td>
-              <th scope='row'>
-                <div className='slds-truncate' title='commsBot'>
-                  Salesforce_Object_Bot
-                </div>
-              </th>
-              <td role='gridcell'>
-                <div className='slds-truncate' title='commsBotLink'>
-                  https://git.soma/sfdc
-                </div>
-              </td>
-              <td role='gridcell'>
-                <div className='slds-truncate' title='commsBotActive'>true</div>
-              </td>
-            </tr>
-            <tr>
-              <td role='gridcell'
-              className='slds-text-align_right'
-              style={{width: '3.75rem;'}}>
-                <label className='slds-checkbox_toggle slds-grid'>
-                  <input type='checkbox' name='checkbox' aria-describedby='toggle-desc' value='on' />
-                  <span id='toggle-desc' className='slds-checkbox_faux_container' aria-live='assertive'>
-                    <span className='slds-checkbox_faux'></span>
-                    <span className='slds-checkbox_on'>On</span>
-                    <span className='slds-checkbox_off'>Off</span>
-                  </span>
-                </label>
-              </td>
-              <th scope='row'>
-                <div className='slds-truncate' title='commsBot'>
-                  PagerDuty_Bot
-                </div>
-              </th>
-              <td role='gridcell'>
-                <div className='slds-truncate' title='commsBotLink'>
-                  https://git.soma/pd
-                </div>
-              </td>
-              <td role='gridcell'>
-                <div className='slds-truncate' title='commsBotActive'>true</div>
-              </td>
-            </tr>
+            {bots.map(bot => this.createRowForBot(bot, selectedBots))}
           </tbody>
         </table>
       </div>
       </section>
+    );
+  }
+
+  createRowForBot(bot, selectedBots) {
+    const iconState = bot.active ? 'positive' : 'negative';
+    const selected = selectedBots.find(value => value === bot.name);
+    return (
+      <tr className='slds-hint-parent'>
+        <td role='gridcell'
+          className='slds-text-align_right'
+          style={{width: '3.75rem;'}}>
+          <label className='slds-checkbox_toggle slds-grid'>
+            <input type='checkbox' name='checkbox'
+              aria-describedby='toggle-desc'
+              defaultChecked={selected}
+              value='on' />
+            <span id='toggle-desc' className='slds-checkbox_faux_container' aria-live='assertive'>
+              <span className='slds-checkbox_faux'></span>
+              <span className='slds-checkbox_on'>On</span>
+              <span className='slds-checkbox_off'>Off</span>
+            </span>
+          </label>
+        </td>
+        <th scope='row'>
+          <div className='slds-truncate' title={bot.name + 'Name'}>
+            {bot.name}
+          </div>
+        </th>
+        <td role='gridcell'>
+          <div className='slds-truncate' title={bot.name +'Link'}>
+            <a href={bot.url} target='_blank'>Bot Repo</a>
+          </div>
+        </td>
+        <td role='gridcell'>
+          <div className='slds-truncate' title={bot.name +'Active'}>
+            <span data-slds-state={iconState} className='slds-icon-score' title='Active/Not Active'>
+              <svg viewBox='0 0 5 5' className='slds-icon-score__positive' aria-hidden='true'>
+                <circle cx='50%' cy='50%' r='1.875' />
+              </svg>
+              <svg viewBox='0 0 5 5' className='slds-icon-score__negative' aria-hidden='true'>
+                <circle cx='50%' cy='50%' r='1.875' />
+              </svg>
+              <span className='slds-assistive-text'>Active/Not Active</span>
+            </span>
+          </div>
+        </td>
+      </tr>
     );
   }
 }
