@@ -18,6 +18,7 @@ const SUBTITLE_ELEM_ID = 'subTitle';
 const SPINNER_ID = 'loading_spinner';
 const ROOMS_TAB = 'roomsTab';
 const ROOM_TYPES_TAB = 'roomTypesTab';
+const BOTS_TAB = 'botsTab';
 
 module.exports = {
 
@@ -62,5 +63,13 @@ module.exports = {
   setRoomTypesTab() {
     let roomTypesTab = document.getElementById(ROOM_TYPES_TAB);
     roomTypesTab.className += ' slds-is-active';
+  },
+
+  /**
+   * Activates Bots nav tab.
+   */
+  setBotsTab() {
+    let botsTab = document.getElementById(BOTS_TAB);
+    botsTab.className += ' slds-is-active';
   },
 };
