@@ -102,6 +102,18 @@ module.exports = (job, done) => {
        */
       return done(null, objToReturn);
     })
+    .then(() => {
+      const fs = require('fs');
+      const profiler = require('v8-profiler');
+      const snapshot4 = profiler.takeSnapshot();
+      console.log(snapshot4.getHeader());
+
+      // Export snapshot to file file
+      snapshot4.export((error, result) => {
+        fs.writeFileSync('snapshot4.heapsnapshot', result);
+        snapshot4.delete();
+      });
+    })
     .catch((err) => {
       logger.error('Caught error from /worker/jobs/bulkUpsertSamplesJob:', err);
       return done(err);

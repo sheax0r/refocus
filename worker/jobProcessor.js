@@ -34,6 +34,17 @@ const createAuditEventJob = require('./jobs/createAuditEventsJob');
 const workerStarted = 'Worker Process Started';
 logger.info(workerStarted);
 
+const fs = require('fs');
+const profiler = require('v8-profiler');
+const snapshot1 = profiler.takeSnapshot();
+console.log(snapshot1.getHeader());
+
+// Export snapshot to file file
+snapshot1.export((error, result) => {
+  fs.writeFileSync('snapshot1.heapsnapshot', result);
+  snapshot1.delete();
+});
+
 jobQueue.process(jobType.BULKUPSERTSAMPLES, jobConcurrency.BULKUPSERTSAMPLES,
   bulkUpsertSamplesJob);
 jobQueue.process(jobType.GET_HIERARCHY, jobConcurrency.GET_HIERARCHY,
