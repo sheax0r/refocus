@@ -17,6 +17,11 @@ const activityLogUtil = require('../../utils/activityLog');
 const cacheSampleModel = require('../../cache/models/samples');
 const publisher = require('../../realtime/redisPublisher');
 
+const memwatch = require('memwatch-next');
+memwatch.on('leak', (info) => { console.log(info); });
+console.log('Hi I am here >>>>>');
+const hd = new memwatch.HeapDiff();
+
 module.exports = (job, done) => {
   /*
    * The shape of the old jobs objects in redis is different from the shape
@@ -102,6 +107,10 @@ module.exports = (job, done) => {
        */
       return done(null, objToReturn);
     })
+    // .then(() => {
+    //   const diff = hd.end();
+    //   // console.log(diff.change.details);
+    // })
     .catch((err) => {
       logger.error('Caught error from /worker/jobs/bulkUpsertSamplesJob:', err);
       return done(err);
