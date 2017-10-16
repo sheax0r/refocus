@@ -26,23 +26,23 @@ const jobConcurrency = jobSetup.jobConcurrency;
 const jobType = jobSetup.jobType;
 const jobQueue = require('../jobQueue/jobWrapper').jobQueue;
 const bulkUpsertSamplesJob = require('./jobs/bulkUpsertSamplesJob');
-const getHierarchyJob = require('./jobs/getHierarchyJob');
-const jobCleanupJob = require('./jobs/jobCleanupJob');
-const sampleTimeoutJob = require('./jobs/sampleTimeoutJob');
-const persistSampleStoreJob = require('./jobs/persistSampleStoreJob');
-const createAuditEventJob = require('./jobs/createAuditEventsJob');
+// const getHierarchyJob = require('./jobs/getHierarchyJob');
+// const jobCleanupJob = require('./jobs/jobCleanupJob');
+// const sampleTimeoutJob = require('./jobs/sampleTimeoutJob');
+// const persistSampleStoreJob = require('./jobs/persistSampleStoreJob');
+// const createAuditEventJob = require('./jobs/createAuditEventsJob');
 const workerStarted = 'Worker Process Started';
 logger.info(workerStarted);
 
 jobQueue.process(jobType.BULKUPSERTSAMPLES, jobConcurrency.BULKUPSERTSAMPLES,
   bulkUpsertSamplesJob);
-jobQueue.process(jobType.GET_HIERARCHY, jobConcurrency.GET_HIERARCHY,
-  getHierarchyJob);
-jobQueue.process(jobType.JOB_CLEANUP, jobConcurrency.JOB_CLEANUP,
-  jobCleanupJob);
-jobQueue.process(jobType.SAMPLE_TIMEOUT, jobConcurrency.SAMPLE_TIMEOUT,
-  sampleTimeoutJob);
-jobQueue.process(jobType.PERSIST_SAMPLE_STORE,
-  jobConcurrency.PERSIST_SAMPLE_STORE, persistSampleStoreJob);
-jobQueue.process(jobType.BULK_CREATE_AUDIT_EVENTS,
-  jobConcurrency.BULK_CREATE_AUDIT_EVENTS, createAuditEventJob);
+// jobQueue.process(jobType.GET_HIERARCHY, jobConcurrency.GET_HIERARCHY,
+//   getHierarchyJob);
+// jobQueue.process(jobType.JOB_CLEANUP, jobConcurrency.JOB_CLEANUP,
+//   jobCleanupJob);
+// jobQueue.process(jobType.SAMPLE_TIMEOUT, jobConcurrency.SAMPLE_TIMEOUT,
+//   sampleTimeoutJob);
+// jobQueue.process(jobType.PERSIST_SAMPLE_STORE,
+//   jobConcurrency.PERSIST_SAMPLE_STORE, persistSampleStoreJob);
+// jobQueue.process(jobType.BULK_CREATE_AUDIT_EVENTS,
+//   jobConcurrency.BULK_CREATE_AUDIT_EVENTS, createAuditEventJob);

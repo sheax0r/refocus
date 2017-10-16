@@ -15,6 +15,14 @@ const scheduledJob = require('../../clock/scheduledJobs/jobCleanup');
 const activityLogUtil = require('../../utils/activityLog');
 const conf = require('../../config');
 
+// const memwatch = require('memwatch-next');
+// memwatch.on('leak', (info) => { console.log(info); });
+// console.log('########### jobCleanupJob: Created a leak event listener ##############');
+
+// memwatch.on('stats', (stats) => {
+//   console.log(stats);
+// });
+
 module.exports = (job, done) => {
   const jobStartTime = Date.now();
   const reqStartTime = job.data.reqStartTime;

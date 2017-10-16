@@ -14,6 +14,14 @@ const featureToggles = require('feature-toggles');
 const scheduledJob = require('../../clock/scheduledJobs/sampleTimeoutJob');
 const activityLogUtil = require('../../utils/activityLog');
 
+// const memwatch = require('memwatch-next');
+// memwatch.on('leak', (info) => { console.log(info); });
+// console.log('########### Sample Timeout job: Created a leak event listener ##############');
+
+// memwatch.on('stats', (stats) => {
+//   console.log(stats);
+// });
+
 module.exports = (job, done) => {
   if (featureToggles.isFeatureEnabled('instrumentKue')) {
     const msg = '[KJI] Entered sampleTimeoutJob.js';

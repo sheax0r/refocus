@@ -19,8 +19,13 @@ const publisher = require('../../realtime/redisPublisher');
 
 const memwatch = require('memwatch-next');
 memwatch.on('leak', (info) => { console.log(info); });
-console.log('Hi I am here >>>>>');
-const hd = new memwatch.HeapDiff();
+console.log('########### Created a leak event listener ##############');
+
+memwatch.on('stats', (stats) => {
+  console.log(stats);
+});
+
+// const hd = new memwatch.HeapDiff();
 
 module.exports = (job, done) => {
   /*

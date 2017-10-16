@@ -16,6 +16,15 @@ const scheduledJob =
 const activityLogUtil = require('../../utils/activityLog');
 const ZERO = 0;
 
+// const memwatch = require('memwatch-next');
+// memwatch.on('leak', (info) => { console.log(info); });
+// console.log('########### Created a leak event listener ##############');
+
+// memwatch.on('stats', (stats) => {
+//   console.log(stats);
+// });
+
+
 module.exports = (job, done) => {
   if (featureToggles.isFeatureEnabled('instrumentKue')) {
     const msg = '[KJI] Entered persistSampleStoreJob.js';
