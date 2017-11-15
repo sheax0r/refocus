@@ -116,8 +116,9 @@ function postCollector(req, res, next) {
      * When a collector registers itself with Refocus, Refocus sends back a
      * special token for that collector to use for all further communication
      */
-    o.dataValues.token = jwtUtil
-      .createToken(collectorToPost.name, collectorToPost.name);
+    o.dataValues.token = jwtUtil.createToken(
+      collectorToPost.name, collectorToPost.name, { IsCollector: true }
+    );
     return res.status(httpStatus.CREATED)
       .json(u.responsify(o, helper, req.method));
   })

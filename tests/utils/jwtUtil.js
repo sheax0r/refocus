@@ -31,10 +31,13 @@ describe('tests/utils/jwtUtil.js >', () => {
   let collectorInst;
   let userToken;
   let collectorToken;
+  let profile;
   const testStartTime = new Date();
 
   const predefinedAdminUserToken = jwtUtil.createToken(
-      adminUser.name, adminUser.name
+      adminUser.name,
+      adminUser.name,
+      { IsAdmin: true, ProfileName: 'Admin' }
   );
 
   // dummy callback that returns a promise.
@@ -46,12 +49,15 @@ describe('tests/utils/jwtUtil.js >', () => {
 
   before((done) => {
     Profile.create({ name: tu.namePrefix + 'myProfile' })
-    .then((createdProfile) => User.create({
-      email: 'testToken@refocus.com',
-      profileId: createdProfile.id,
-      name: `${tu.namePrefix}myRefocusUser`,
-      password: 'abcd',
-    }))
+    .then((createdProfile) => {
+      profile = createdProfile;
+      return User.create({
+        email: 'testToken@refocus.com',
+        profileId: createdProfile.id,
+        name: `${tu.namePrefix}myRefocusUser`,
+        password: 'abcd',
+      });
+    })
     .then((user) => {
       userInst = user;
       return Collector.create({
@@ -62,11 +68,17 @@ describe('tests/utils/jwtUtil.js >', () => {
     })
     .then((collector) => {
       collectorInst = collector;
-      return tu.createTokenFromUserName(userInst.name);
+      return jwtUtil.createToken(
+        userInst.name,
+        userInst.name,
+        { IsAdmin: false, ProfileName: profile.name }
+      );
     })
     .then((token) => {
       userToken = token;
-      return tu.createTokenFromUserName(collectorInst.name);
+      return jwtUtil.createToken(
+        collectorInst.name, collectorInst.name, { IsCollector: true }
+      );
     })
     .then((token) => {
       collectorToken = token;
