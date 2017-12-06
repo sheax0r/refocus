@@ -36,19 +36,19 @@ const GENERATOR_TEMPLATE_SIMPLE = {
   helpEmail: 'a@aaa.com',
   helpUrl: 'aaa.com',
   repository: {
-    url: 'aaa.com',
+    url: 'http://aaa.com',
     type: 'GitHub',
   },
   contextDefinition: {
-    a: {
-      description: 'a',
-      aa: 1,
-      ab: 2,
+    okValue: {
+      required: false,
+      default: '0',
+      description: 'An ok sample\'s value, e.g. \'0\'',
     },
-    b: {
-      description: 'b',
-      ba: 3,
-      bb: 4,
+    criticalValue: {
+      required: false,
+      default: '2',
+      description: 'A critical sample\'s value, e.g. \'1\'',
     },
   },
 };

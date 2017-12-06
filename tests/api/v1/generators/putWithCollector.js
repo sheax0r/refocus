@@ -32,6 +32,9 @@ describe('tests/api/v1/generators/putWithCollector.js >', () => {
   let collector1 = { name: 'hello', version: '1.0.0' };
   let collector2 = { name: 'beautiful', version: '1.0.0' };
   let collector3 = { name: 'world', version: '1.0.0' };
+  const sortedNames = [collector1, collector2, collector3]
+    .map((col) => col.name)
+    .sort();
   const generator = u.getGenerator();
   const generatorTemplate = gtUtil.getGeneratorTemplate();
   u.createSGtoSGTMapping(generatorTemplate, generator);
@@ -105,13 +108,13 @@ describe('tests/api/v1/generators/putWithCollector.js >', () => {
       const { name, collectors } = res.body;
       expect(name).to.equal(toPut.name);
       expect(collectors.length).to.equal(ZERO);
-      done();
+      return done();
     });
   });
 
   it('ok: replace collector with more collectors', (done) => {
     const withCollectors = JSON.parse(JSON.stringify(toPut));
-    withCollectors.collectors = [collector2.name, collector3.name];
+    withCollectors.collectors = [collector1.name, collector2.name, collector3.name];
     api.put(`${path}/${generatorId}`)
     .set('Authorization', token)
     .send(withCollectors)
@@ -123,11 +126,10 @@ describe('tests/api/v1/generators/putWithCollector.js >', () => {
 
       const { collectors } = res.body;
       expect(Array.isArray(collectors)).to.be.true;
-      expect(collectors.length).to.equal(TWO);
+      expect(collectors.length).to.equal(THREE);
       const collectorNames = collectors.map((collector) => collector.name);
-      expect(collectorNames).to.contain(collector2.name);
-      expect(collectorNames).to.contain(collector3.name);
-      done();
+      expect(collectorNames).to.deep.equal(sortedNames);
+      return done();
     });
   });
 
@@ -146,7 +148,7 @@ describe('tests/api/v1/generators/putWithCollector.js >', () => {
       const { collectors } = res.body;
       expect(collectors.length).to.equal(ONE);
       expect(collectors[ZERO].name).to.equal(collector1.name);
-      done();
+      return done();
     });
   });
 
@@ -183,7 +185,7 @@ describe('tests/api/v1/generators/putWithCollector.js >', () => {
 
       expect(res.body.errors[0].type).to.equal('ResourceNotFoundError');
       expect(res.body.errors[0].source).to.equal('Generator');
-      done();
+      return done();
     });
   });
 });

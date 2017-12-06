@@ -27,6 +27,7 @@ const doPut = require('../helpers/verbs/doPut');
 const featureToggles = require('feature-toggles');
 const config = require('../../../config');
 const fu = require('../helpers/verbs/findUtils');
+const redisCache = require('../../../cache/redisCache').client.cache;
 
 module.exports = {
 
@@ -102,8 +103,10 @@ module.exports = {
    * @param {Function} next - The next middleware function in the stack
    */
   getPerspective(req, res, next) {
-    helper.cacheEnabled = featureToggles
-    .isFeatureEnabled('enableCachePerspective');
+    /* Add userId to response to make it available from perspective page. */
+    res.cookie('userId', req.user.id, { maxAge: 1000 });
+    helper.cacheEnabled =
+      featureToggles.isFeatureEnabled('enableCachePerspective');
     doGet(req, res, next, helper);
   },
 
@@ -160,6 +163,11 @@ module.exports = {
    */
   patchPerspective(req, res, next) {
     doPatch(req, res, next, helper);
+
+    // Remove from cache after successful PATCH
+    if (featureToggles.isFeatureEnabled('enableCachePerspective')) {
+      redisCache.del('/v1/perspectives');
+    }
   },
 
   /**
@@ -190,6 +198,11 @@ module.exports = {
   putPerspective(req, res, next) {
     helper.validateFilterAndThrowError(req.body);
     doPut(req, res, next, helper);
+
+    // Remove from cache after successful PUT
+    if (featureToggles.isFeatureEnabled('enableCachePerspective')) {
+      redisCache.del('/v1/perspectives');
+    }
   },
 
 }; // exports

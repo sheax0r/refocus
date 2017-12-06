@@ -42,15 +42,6 @@ function isThisSubject(obj) {
 }
 
 /**
- * A function to see if an instance is an instance of a room
- * Checks the name from the model
- * @param  {Object}  obj - An object instance
- * @returns {Boolean} - returns true if the name singular is room
- */
-function isRoom(obj) {
-  return obj.hasOwnProperty('type') && obj.hasOwnProperty('settings');
-}
-/**
  * A function to see if an object is a sample object or not. It returns true
  * if an object passed has 'value' as one of its property.
  * @param  {Object}  obj - An object instance
@@ -245,10 +236,9 @@ function perspectiveEmit(nspComponents, obj) {
  * identified by this namespace string.
  */
 function botEmit(nspComponents, obj) {
-  const room = nspComponents[constants.roomFilterIndex];
-
-  if (isRoom(obj)) {
-    return applyFilter(room, obj.name);
+  if (obj.pubOpts) {
+    const objFilter = nspComponents[obj.pubOpts.filterIndex];
+    return applyFilter(objFilter, obj[obj.pubOpts.filterField]);
   }
 
   return false;
@@ -311,13 +301,12 @@ function getPerspectiveNamespaceString(inst) {
 /**
  * When passed a room object, it returns a namespace string based on the
  * fields set in the room object.
- * @param  {Instance} inst - Perspective object
+ * @param  {Instance} inst - Room object
  * @returns {String} - namespace string.
  */
 function getBotsNamespaceString(inst) {
   let namespace = botAbsolutePath;
-
-  if (isRoom(inst)) {
+  if (inst) {
     namespace += constants.filterSeperator + inst.name;
   }
 
@@ -391,7 +380,7 @@ function isIpWhitelisted(addr, whitelist) {
  * When passed in a sample, its related subject and aspect is attached to the
  * sample. If useSampleStore is set to true, the subject ans aspect is fetched
  * for the cache instead of the database.
- * @param {Object} sample - The sample instance.
+ * @param {Object} _sample - The sample instance. Could be from db directly
  * @param {Boolen} useSampleStore - The sample store flag, the subject and the
  *   aspect is fetched from the cache if this is set.
  * @param {Model} subjectModel - The database subject model.
@@ -399,8 +388,9 @@ function isIpWhitelisted(addr, whitelist) {
  * @returns {Promise} - which resolves to a complete sample with its subject and
  *   aspect.
  */
-function attachAspectSubject(sample, useSampleStore, subjectModel,
+function attachAspectSubject(_sample, useSampleStore, subjectModel,
   aspectModel) {
+  const sample = _sample.get ? _sample.get() : _sample;
   let nameParts;
 
   // check if sample object contains name
@@ -445,9 +435,13 @@ function attachAspectSubject(sample, useSampleStore, subjectModel,
     let sub = response[1];
     asp = asp.get ? asp.get() : asp;
     sub = sub.get ? sub.get() : sub;
-    sample.aspect = redisStore.arrayStringsToJson(asp,
+    delete asp.writers;
+    delete sub.writers;
+
+    sample.aspect = redisStore.arrayObjsStringsToJson(asp,
          redisStore.constants.fieldsToStringify.aspect);
-    sample.subject = redisStore.arrayStringsToJson(sub,
+
+    sample.subject = redisStore.arrayObjsStringsToJson(sub,
          redisStore.constants.fieldsToStringify.subject);
 
     /*
@@ -469,6 +463,5 @@ module.exports = {
   parseObject,
   shouldIEmitThisObj,
   isThisSample,
-  isRoom,
   attachAspectSubject,
 }; // exports

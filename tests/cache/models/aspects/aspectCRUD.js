@@ -83,6 +83,7 @@ describe('tests/cache/models/aspects/aspectCRUD.js, ' +
   });
 
   afterEach(rtu.forceDelete);
+  after(tu.forceDeleteUser);
   after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
   it('time fields should have the expected format', (done) => {
@@ -123,8 +124,7 @@ describe('tests/cache/models/aspects/aspectCRUD.js, ' +
     .catch(done);
   });
 
-  it('unpublished aspect should not be found but should be found after it ' +
-  'is published', (done) => {
+  it('unpublished aspect should be found', (done) => {
     let aspect;
     let aspectKey;
     Aspect.findById(aspWCId)
@@ -134,7 +134,7 @@ describe('tests/cache/models/aspects/aspectCRUD.js, ' +
       return rcli.sismemberAsync(aspectIndexName, aspectKey);
     })
     .then((ok) => {
-      expect(ok).to.equal(0);
+      expect(ok).to.equal(1);
       return aspect.update({ isPublished: true });
     })
     .then(() => rcli.sismemberAsync(aspectIndexName, aspectKey))
@@ -152,7 +152,7 @@ describe('tests/cache/models/aspects/aspectCRUD.js, ' +
     .catch(done);
   });
 
-  it('when aspect is updated, the aspect hash should refelct this',
+  it('when aspect is updated, the aspect hash should reflect this',
   (done) => {
     Aspect.findById(aspTempId)
     .then((asp) => asp.update({
@@ -213,7 +213,7 @@ describe('tests/cache/models/aspects/aspectCRUD.js, ' +
     .catch(done);
   });
 
-  it('when name changes, the sampleStore refelct this change', (done) => {
+  it('when name changes, the sampleStore reflect this change', (done) => {
     let oldName;
     let newName;
 
@@ -310,6 +310,28 @@ describe('tests/cache/models/aspects/aspectCRUD.js, ' +
     .catch(done);
   });
 
+  it('when an aspect is unpublished it should' +
+  'remain in the samplestore', (done) => {
+    // of the form samsto:samples:
+    const aspectKey = redisStore.toKey('aspect', aspectHumid.name);
+    samstoinit.populate()
+    .then(() => Aspect.findById(aspHumdId))
+    .then((a) => a.update({ isPublished: false }))
+    .then((a) => rcli.sismemberAsync(aspectIndexName, aspectKey))
+    .then((ok) => {
+      expect(ok).to.equal(1);
+      return rcli.hgetallAsync(aspectKey);
+    })
+    .then((asp) => {
+      expect(asp).to.not.equal(null);
+      expect(asp.timeout).to.equal('30s');
+      expect(asp.name).to.equal(aspectHumid.name);
+      expect(asp.isPublished).to.equal('false');
+      done();
+    })
+    .catch(done);
+  });
+
   it('when an aspect is unpublished all its related samples should be ' +
   'removed from the samplestore', (done) => {
     // of the form samsto:samples:
@@ -331,6 +353,104 @@ describe('tests/cache/models/aspects/aspectCRUD.js, ' +
         expect(nameParts[0]).not.equal(aspectName);
       });
       done();
+    })
+    .catch(done);
+  });
+
+  it('Create, isPublished false, check tags and related links', (done) => {
+    Aspect.create({
+      name: `${tu.namePrefix}ASPECTNAME`,
+      isPublished: false,
+      timeout: '110s',
+      tags: ['tag1', 'tag2'],
+      relatedLinks: [
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ],
+    })
+    .then((asp) => {
+      expect(Array.isArray(asp.tags)).to.be.equal(true);
+      expect(Array.isArray(asp.relatedLinks)).to.be.equal(true);
+      expect(asp.tags).to.deep.equal(['tag1', 'tag2']);
+      expect(asp.relatedLinks).to.deep.equal([
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ]);
+      return done();
+    })
+    .catch(done);
+  });
+
+  it('Create, isPublished true, check tags and related links', (done) => {
+    Aspect.create({
+      name: `${tu.namePrefix}ASPECTNAME`,
+      isPublished: true,
+      timeout: '110s',
+      tags: ['tag1', 'tag2'],
+      relatedLinks: [
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ],
+    })
+    .then((asp) => {
+      expect(Array.isArray(asp.tags)).to.be.equal(true);
+      expect(Array.isArray(asp.relatedLinks)).to.be.equal(true);
+      expect(asp.tags).to.deep.equal(['tag1', 'tag2']);
+      expect(asp.relatedLinks).to.deep.equal([
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ]);
+      return done();
+    })
+    .catch(done);
+  });
+
+  it('Update, isPublished false, check tags and related links', (done) => {
+    Aspect.create({
+      name: `${tu.namePrefix}ASPECTNAME`,
+      isPublished: true,
+      timeout: '110s',
+      tags: ['tag1', 'tag2'],
+      relatedLinks: [
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ],
+    })
+    .then((asp) => asp.update({ isPublished: false }))
+    .then((asp) => {
+      expect(Array.isArray(asp.tags)).to.be.equal(true);
+      expect(Array.isArray(asp.relatedLinks)).to.be.equal(true);
+      expect(asp.tags).to.deep.equal(['tag1', 'tag2']);
+      expect(asp.relatedLinks).to.deep.equal([
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ]);
+      return done();
+    })
+    .catch(done);
+  });
+
+  it('Update, isPublished true, check tags and related links', (done) => {
+    Aspect.create({
+      name: `${tu.namePrefix}ASPECTNAME`,
+      isPublished: false,
+      timeout: '110s',
+      tags: ['tag1', 'tag2'],
+      relatedLinks: [
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ],
+    })
+    .then((asp) => asp.update({ isPublished: true }))
+    .then((asp) => {
+      expect(Array.isArray(asp.tags)).to.be.equal(true);
+      expect(Array.isArray(asp.relatedLinks)).to.be.equal(true);
+      expect(asp.tags).to.deep.equal(['tag1', 'tag2']);
+      expect(asp.relatedLinks).to.deep.equal([
+        { name: 'link name 1', url: 'http://abc.com' },
+        { name: 'link name 2', url: 'http://xyz.com' },
+      ]);
+      return done();
     })
     .catch(done);
   });

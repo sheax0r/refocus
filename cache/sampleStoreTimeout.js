@@ -12,6 +12,7 @@
  * Timeout samples
  */
 'use strict'; // eslint-disable-line strict
+const logInvalidHmsetValues = require('../utils/common').logInvalidHmsetValues;
 const sampleStore = require('./sampleStore');
 const redisClient = require('./redisCache').client.sampleStore;
 const isTimedOut = require('../db/helpers/sampleUtils').isTimedOut;
@@ -64,12 +65,16 @@ function getSampleTimeoutComponents(samples, aspects, curr) {
       const fullSampObj = Object.assign({}, objToUpdate);
       fullSampObj.name = samp.name;
       fullSampObj.aspect =
-        sampleStore.arrayStringsToJson(asp, fieldsToStringify.aspect);
+        sampleStore.arrayObjsStringsToJson(asp, fieldsToStringify.aspect);
       fullSampObj.aspectId = fullSampObj.aspect.id;
       timedOutSamples.push(fullSampObj);
+
+      const sampleKey = sampleStore
+        .toKey(sampleStore.constants.objectType.sample, samp.name);
+      logInvalidHmsetValues(sampleKey, objToUpdate);
       sampCmds.push([
         'hmset',
-        sampleStore.toKey(sampleStore.constants.objectType.sample, samp.name),
+        sampleKey,
         objToUpdate,
       ]);
     }

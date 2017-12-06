@@ -17,8 +17,6 @@ const tu = require('../../../testUtils');
 const path = '/v1/samples';
 const rtu = require('../redisTestUtil');
 const redisOps = require('../../../../cache/redisOps');
-const objectType = require('../../../../cache/sampleStore')
-  .constants.objectType;
 const samstoinit = require('../../../../cache/sampleStoreInit');
 const expect = require('chai').expect;
 const ZERO = 0;
@@ -74,6 +72,7 @@ describe('tests/cache/models/samples/post.js >', () => {
     });
 
     afterEach(rtu.forceDelete);
+    after(tu.forceDeleteUser);
     after(() => tu.toggleOverride('enableRedisSampleStore', false));
 
     describe('unpublished subject/aspect fails >', () => {
@@ -86,7 +85,7 @@ describe('tests/cache/models/samples/post.js >', () => {
         .then((a) => {
           const sampleWithUnpublishedAspect = {
             aspectId: a.id,
-            subjectId: subjectId,
+            subjectId,
             value: '1',
           };
 
@@ -102,7 +101,7 @@ describe('tests/cache/models/samples/post.js >', () => {
             const _err = res.body.errors[ZERO];
             expect(_err.type).to.equal('ResourceNotFoundError');
             expect(_err.description).to.equal('Aspect not found.');
-            done();
+            return done();
           });
         });
       });
@@ -114,7 +113,7 @@ describe('tests/cache/models/samples/post.js >', () => {
         })
         .then((s) => {
           const sampleWithUnpublishedSubject = {
-            aspectId: aspectId,
+            aspectId,
             subjectId: s.id,
             value: '1',
           };
@@ -131,7 +130,7 @@ describe('tests/cache/models/samples/post.js >', () => {
             const _err = res.body.errors[ZERO];
             expect(_err.type).to.equal('ResourceNotFoundError');
             expect(_err.description).to.equal('Subject not found.');
-            done();
+            return done();
           });
         });
       });
@@ -159,7 +158,7 @@ describe('tests/cache/models/samples/post.js >', () => {
           expect(res.body.errors[ZERO].type).to.equal('ForbiddenError');
           expect(res.body.errors[ZERO].description)
           .to.equal('Sample already exists.');
-          done();
+          return done();
         });
       });
 
@@ -176,7 +175,7 @@ describe('tests/cache/models/samples/post.js >', () => {
           expect(res.body.errors[ZERO].type).to.equal('ForbiddenError');
           expect(res.body.errors[ZERO].description)
           .to.equal('Sample already exists.');
-          done();
+          return done();
         });
       });
     });
@@ -195,7 +194,7 @@ describe('tests/cache/models/samples/post.js >', () => {
         const error = res.body.errors[0];
         expect(error.type).to.equal('ValidationError');
         expect(error.description).to.contain('name');
-        done();
+        return done();
       });
     });
 
@@ -234,7 +233,7 @@ describe('tests/cache/models/samples/post.js >', () => {
         expect(res.body.aspect).to.be.undefined;
         expect(tu.looksLikeId(res.body.aspectId)).to.be.true;
         expect(tu.looksLikeId(res.body.subjectId)).to.be.true;
-        done();
+        return done();
       });
     });
 
@@ -257,8 +256,16 @@ describe('tests/cache/models/samples/post.js >', () => {
         }
 
         expect(res.body.name).to.be.equal(sampleName);
-        done();
+        return done();
       });
+    });
+
+    it('basic post /samples with invalid token', (done) => {
+      api.post(path)
+      .set('Authorization', 'invalidtoken')
+      .send(sampleToPost)
+      .expect(constants.httpStatus.FORBIDDEN)
+      .end(done);
     });
 
     it('createdAt and updatedAt fields have the expected format', (done) => {
@@ -274,7 +281,7 @@ describe('tests/cache/models/samples/post.js >', () => {
         const { updatedAt, createdAt } = res.body;
         expect(updatedAt).to.equal(new Date(updatedAt).toISOString());
         expect(createdAt).to.equal(new Date(createdAt).toISOString());
-        done();
+        return done();
       });
     });
 
@@ -289,7 +296,7 @@ describe('tests/cache/models/samples/post.js >', () => {
         }
 
         expect(res.body.id).to.be.undefined;
-        done();
+        return done();
       });
     });
 
@@ -309,7 +316,7 @@ describe('tests/cache/models/samples/post.js >', () => {
         }
 
         expect(res.body.relatedLinks).to.have.length(relatedLinks.length);
-        done();
+        return done();
       });
     });
 

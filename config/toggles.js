@@ -93,9 +93,6 @@ const longTermToggles = {
    */
   enableWorkerProcess: environmentVariableTrue(pe, 'ENABLE_WORKER_PROCESS'),
 
-  // Enforce that all API requests have valid API token
-  requireAccessToken: environmentVariableTrue(pe, 'REQUIRE_ACCESS_TOKEN'),
-
   // Disable HTTP, i.e. only use https
   requireHttps: environmentVariableTrue(pe, 'REQUIRE_HTTPS'),
 
@@ -113,10 +110,9 @@ const longTermToggles = {
  * things from getting out of hand and keeping tons of dead unused code around.
  */
 const shortTermToggles = {
-
-  // Cache the GET request for samples with wildcard by name
-  cacheGetSamplesByNameWildcard: environmentVariableTrue(pe,
-    'CACHE_GET_SAMPLES_BY_NAME_WILDCARD'),
+  // turn on logging to log invalid hmset values
+  logInvalidHmsetValues: environmentVariableTrue(pe,
+    'LOG_INVALID_HMSET_VALUES'),
 
   // Enable GET from cache for /v1/subjects, /v1/subjects/{key}
   getSubjectFromCache: environmentVariableTrue(pe,
@@ -136,6 +132,11 @@ const shortTermToggles = {
 
   // publish partial sample to the subscribers
   publishPartialSample: environmentVariableTrue(pe, 'PUBLISH_PARTIAL_SAMPLE'),
+
+  // require helpEmail or helpUrl in POST/PUT/PATCH of aspects and subjects
+  requireHelpEmailOrHelpUrl: environmentVariableTrue(
+    pe, 'REQUIRE_HELP_EMAIL_OR_HELP_URL'
+  ),
 
 }; // shortTermToggles
 

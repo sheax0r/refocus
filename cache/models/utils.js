@@ -13,11 +13,10 @@ const apiConstants = require('../../api/v1/constants');
 const defaults = require('../../config').api.defaults;
 const sampleStore = require('../sampleStore');
 const u = require('../../api/v1/helpers/verbs/utils');
-const featureToggles = require('feature-toggles');
-const redisErrors = require('../redisErrors');
 const MINUS_ONE = -1;
 const ONE = 1;
 const ZERO = 0;
+const RADIX = 10;
 
 /**
  * Apply field list filter.
@@ -25,7 +24,6 @@ const ZERO = 0;
  * @param  {Array} attributes - Resource fields array
  */
 function applyFieldListFilter(resource, attributes) {
-  // apply field list filter
   Object.keys(resource).forEach((field) => {
     if (!attributes.includes(field)) {
       delete resource[field];
@@ -34,7 +32,8 @@ function applyFieldListFilter(resource, attributes) {
 }
 
 /**
- * Apply filters on resource array list
+ * Apply filters on resource array list.
+ *
  * @param  {Array} resourceObjArray - Resource objects array
  * @param  {Object} opts - Filter options
  * @returns {Array} - Filtered resource objects array
@@ -66,38 +65,37 @@ function applyFiltersOnResourceObjs(resourceObjArray, opts) {
   }
 
   return filteredResources;
-}
+} // applyFiltersOnResourceObjs
 
 /**
- * Apply limit and offset filter to resource array
+ * Apply limit and offset filter to resource array.
+ *
  * @param  {Object} opts - Filter options
  * @param  {Array} arr - Array of resource keys or objects
  * @returns {Array} - Sliced array
  */
 function applyLimitAndOffset(opts, arr) {
-  let startIndex = 0;
-  let endIndex = arr.length;
-  if (opts.offset) {
-    startIndex = opts.offset;
+  let startIndex = opts.offset || 0;
+  let endIndex = startIndex + opts.limit || arr.length;
+
+  // Short circuit: avoid calling array slice if we don't have to!
+  if (startIndex === 0 && endIndex >= arr.length) {
+    return arr;
   }
 
-  if (opts.limit) {
-    endIndex = startIndex + opts.limit;
-  }
-
-  // apply limit and offset, default 0 to length
   return arr.slice(startIndex, endIndex);
 }
 
 /**
- * Apply filters on resource keys list
+ * Do any prefiltering based on the keys.
+ *
  * @param  {Array} keysArr - Resource key names array
  * @param  {Object} opts - Filter options
  * @param  {Function} getNameFunc - For filter on name, any processing
  *  on keys to get the resource name.
  * @returns {Array} - Filtered resource keys array
  */
-function applyFiltersOnResourceKeys(keysArr, opts, getNameFunc) {
+function prefilterKeys(keysArr, opts, getNameFunc) {
   let resArr = keysArr;
 
   // apply limit and offset if no sort order defined
@@ -107,14 +105,13 @@ function applyFiltersOnResourceKeys(keysArr, opts, getNameFunc) {
 
   // apply wildcard expr on name, if specified
   if (opts.filter && opts.filter.name) {
-    const filteredKeys = filterByFieldWildCardExpr(
-      resArr, 'name', opts.filter.name, getNameFunc
-    );
+    const filteredKeys = filterByFieldWildCardExpr(resArr, 'name',
+      opts.filter.name, getNameFunc);
     resArr = filteredKeys;
   }
 
   return resArr;
-}
+} // prefilterKeys
 
 /**
  * Remove extra fields from query body object.
@@ -142,7 +139,6 @@ function cleanQueryBodyObj(qbObj, fieldsArr) {
  * @returns {Array} - Filtered array
  */
 function filterByFieldWildCardExpr(arr, prop, propExpr, getNameFunc) {
-
   // regex to match wildcard expr, i option means case insensitive
   const escapedExp = propExpr.split('_').join('\\_')
                       .split('|').join('\\|').split('.').join('\\.');
@@ -176,7 +172,6 @@ function sortByOrder(arr, propArr) {
     let strA = '';
     let strB = '';
     propArr.forEach((field) => {
-
       // remove leading minus sign
       const _field = isDescending ? field.substr(1) : field;
       strA += a[_field];
@@ -193,7 +188,7 @@ function sortByOrder(arr, propArr) {
 
     return ZERO;
   });
-}
+} // sortByOrder
 
 /**
  * Get option fields from requesr parameters. An example:
@@ -217,14 +212,18 @@ function getOptionsFromReq(params, helper) {
     opts.order = params.sort.value || helper.defaultOrder;
   }
 
-  // handle limit
+  // Specify the limit (must not be greater than default)
+  opts.limit = defaults.limit;
   if (params.limit && params.limit.value) {
-    opts.limit = parseInt(params.limit.value, defaults.limit);
+    const lim = parseInt(params.limit.value, RADIX);
+    if (lim < defaults.limit) {
+      opts.limit = lim;
+    }
   }
 
-  // handle offset
+  opts.offset = defaults.offset;
   if (params.offset && params.offset.value) {
-    opts.offset = parseInt(params.offset.value, defaults.offset);
+    opts.offset = parseInt(params.offset.value, RADIX);
   }
 
   const filter = {};
@@ -247,7 +246,7 @@ module.exports = {
   cleanQueryBodyObj,
   filterByFieldWildCardExpr,
   applyFieldListFilter,
-  applyFiltersOnResourceKeys,
+  prefilterKeys,
   applyLimitAndOffset,
   getOptionsFromReq,
   sortByOrder,

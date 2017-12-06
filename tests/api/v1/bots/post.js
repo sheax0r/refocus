@@ -18,6 +18,7 @@ const path = '/v1/bots';
 const expect = require('chai').expect;
 const ZERO = 0;
 const tu = require('../../../testUtils');
+const jwtUtil = require('../../../../utils/jwtUtil');
 
 describe('tests/api/v1/bots/post.js >', () => {
   let token;
@@ -46,6 +47,12 @@ describe('tests/api/v1/bots/post.js >', () => {
         return done(err);
       }
 
+      const fakeToken = jwtUtil
+        .createToken(u.name + 'Fail', u.name + 'Fail');
+
+      // since createToken uses current timestamp, the token value is not fixed.
+      expect(res.body.token).to.not.equal(undefined);
+      expect(res.body.token).to.not.equal(fakeToken);
       expect(res.body.name).to.equal(u.name);
       expect(res.body.ui.name).to.equal('uiBlob');
       done();

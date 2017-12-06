@@ -11,32 +11,44 @@
  */
 'use strict'; // eslint-disable-line strict
 const common = require('../helpers/common');
-const utils = require('../helpers/generatorUtil');
+const sgUtils = require('../helpers/generatorUtil');
 const cryptUtils = require('../../utils/cryptUtils');
 const constants = require('../constants');
 const dbErrors = require('../dbErrors');
 const ValidationError = dbErrors.ValidationError;
 const semverRegex = require('semver-regex');
 const assoc = {};
+const joi = require('joi');
 
-const generatorTemplateSchema = {
-  properties: {
-    name: {
-      description: 'GeneratorTemplate name associated with this generator',
-      type: 'string',
-      maxLength: constants.fieldlen.normalName,
-      pattern: constants.nameRegex,
-      required: true,
-    },
-    version: {
-      description: 'Generator template version or version range',
-      type: 'string',
-      require: true,
-      conform: (thisVersion) => semverRegex().test(thisVersion),
-      message: 'The version must match the semantic version format',
-    },
+const customVersionValidationSchema = joi.extend((joi) => ({
+  base: joi.string(),
+  name: 'version',
+  language: {
+    validateVersion: 'provide proper version',
   },
-};
+  rules: [
+    {
+      name: 'validateVersion',
+      validate(params, value, state, options) {
+        const versionValidate = semverRegex().test(value);
+        if (!versionValidate) {
+          return this.createError('version.validateVersion',
+            { value }, state, options);
+        }
+
+        return value;
+      },
+    },
+  ],
+}));
+
+const generatorTemplateSchema = joi.object().keys({
+  name: joi.string().regex(constants.nameRegex)
+    .max(constants.fieldlen.normalName).required()
+    .description('GeneratorTemplate name associated with this generator'),
+  version: customVersionValidationSchema.version().validateVersion()
+    .required().description('Generator template version or version range'),
+});
 
 module.exports = function generator(seq, dataTypes) {
   const Generator = seq.define('Generator', {
@@ -167,7 +179,7 @@ module.exports = function generator(seq, dataTypes) {
        * @returns {Promise} with collectors if pass, error if fail
        */
       validateCollectors(collectorNames, whereClauseForNameInArr) {
-        return utils.validateCollectors(seq, collectorNames,
+        return sgUtils.validateCollectors(seq, collectorNames,
           whereClauseForNameInArr);
       },
 
@@ -185,7 +197,7 @@ module.exports = function generator(seq, dataTypes) {
         let createdGenerator;
         let collectors; // will be populated with actual collectors
         return new seq.Promise((resolve, reject) =>
-          utils.validateCollectors(seq, requestBody.collectors,
+         sgUtils.validateCollectors(seq, requestBody.collectors,
             whereClauseForNameInArr)
           .then((_collectors) => {
             collectors = _collectors;
@@ -213,6 +225,7 @@ module.exports = function generator(seq, dataTypes) {
                 `name: ${gtName} and version: ${gtVersion}`);
             }
 
+            sgUtils.validateGeneratorCtx(inst.context, gt.contextDefinition);
             return cryptUtils
               .encryptSGContextValues(seq.models.GlobalConfig, inst, gt)
               .catch(() => {
@@ -232,6 +245,7 @@ module.exports = function generator(seq, dataTypes) {
                 `name: ${gtName} and version: ${gtVersion}`);
               }
 
+              sgUtils.validateGeneratorCtx(inst.context, gt.contextDefinition);
               return cryptUtils
                 .encryptSGContextValues(seq.models.GlobalConfig, inst, gt)
                 .catch(() => {
@@ -281,8 +295,8 @@ module.exports = function generator(seq, dataTypes) {
     instanceMethods: {
 
       /**
-       * 1. validate the collectors field: if succeed, save the collectors in temp var for
-       *  attaching to the generator. if fail, abort the operation
+       * 1. validate the collectors field: if succeed, save the collectors in
+       *  temp var for attaching to the generator. if fail, abort the operation
        * 2. update the generator
        * 3. add the saved collectors (if any)
        *
@@ -293,7 +307,7 @@ module.exports = function generator(seq, dataTypes) {
       updateWithCollectors(requestBody, whereClauseForNameInArr) {
         let collectors; // will be populated with actual collectors
         return new seq.Promise((resolve, reject) =>
-          utils.validateCollectors(seq, requestBody.collectors,
+         sgUtils.validateCollectors(seq, requestBody.collectors,
             whereClauseForNameInArr)
           .then((_collectors) => {
             collectors = _collectors;

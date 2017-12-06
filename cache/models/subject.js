@@ -114,9 +114,9 @@ function attachSamples(res) {
       if (sample && asp) {
 
         // parse the array fields to JSON before adding them to the sample list
-        sampleStore.arrayStringsToJson(sample,
+        sampleStore.arrayObjsStringsToJson(sample,
                                     constants.fieldsToStringify.sample);
-        sampleStore.arrayStringsToJson(asp, constants.fieldsToStringify.aspect);
+        sampleStore.arrayObjsStringsToJson(asp, constants.fieldsToStringify.aspect);
 
         sample.aspect = asp;
         res.samples.push(sample);
@@ -272,7 +272,7 @@ module.exports = {
         subject.name, helper, req.method
       );
 
-      const result = sampleStore.arrayStringsToJson(
+      const result = sampleStore.arrayObjsStringsToJson(
         subject, constants.fieldsToStringify.subject
       );
 
@@ -296,24 +296,20 @@ module.exports = {
     const opts = modelUtils.getOptionsFromReq(req.swagger.params, helper);
     const response = [];
 
-    if (opts.limit || opts.offset) {
-      res.links({
-        prev: req.originalUrl,
-        next: fu.getNextUrl(req.originalUrl, opts.limit, opts.offset),
-      });
-    }
+    res.links({
+      prev: req.originalUrl,
+      next: fu.getNextUrl(req.originalUrl, opts.limit, opts.offset),
+    });
 
     // get all Subjects sorted lexicographically
     return redisClient.sortAsync(constants.indexKey.subject, 'alpha')
     .then((allSubjectKeys) => {
       const commands = [];
       const filteredSubjectKeys = modelUtils
-        .applyFiltersOnResourceKeys(allSubjectKeys, opts, getNameFromAbsolutePath);
-
+        .prefilterKeys(allSubjectKeys, opts, getNameFromAbsolutePath);
       filteredSubjectKeys.forEach((subjectKey) => {
         commands.push(['hgetall', subjectKey]);
       });
-
       return redisClient.batch(commands).execAsync();
     })
     .then((subjects) => {

@@ -15,7 +15,17 @@ const constants = require('../constants');
 const redisCache = require('../../cache/redisCache').client.cache;
 const lensUtil = require('../../utils/lensUtil');
 const featureToggles = require('feature-toggles');
+const dbErrors = require('../dbErrors');
 const assoc = {};
+
+/**
+ * @param {Object} _inst - a sequelize Lens instance.
+ */
+function setLensObjectInCache(_inst) {
+  const lensObj = lensUtil.cleanAndCreateLensJson(_inst);
+  redisCache.set(lensObj.id, JSON.stringify(lensObj));
+  redisCache.set(lensObj.name, JSON.stringify(lensObj));
+}
 
 module.exports = function lens(seq, dataTypes) {
   const Lens = seq.define('Lens', {
@@ -117,9 +127,52 @@ module.exports = function lens(seq, dataTypes) {
     },
 
     hooks: {
+      /**
+       * Prohibit deleting a lens if perspectives are using it.
+       */
       beforeDestroy(inst /* , opts */) {
-        return common.setIsDeleted(seq.Promise, inst);
-      },
+        return seq.models.Perspective.findAll({
+          where: {
+            lensId: inst.id,
+          },
+          attributes: ['id', 'lensId', 'name'],
+        })
+        .then((perspectives) => {
+          if (perspectives && perspectives.length) {
+            throw new dbErrors.ValidationError({
+              message:
+                `Cannot delete ${inst.name} because it is still in use by the ` +
+                'following perspectives: ' + perspectives.map((p) => p.name),
+            });
+          } else {
+            return common.setIsDeleted(seq.Promise, inst);
+          }
+        });
+      }, // beforeDestroy
+
+      /**
+       * Prohibit unpublishing a lens if perspectives are using it.
+       */
+      beforeUpdate(inst /* , opts */) {
+        if (inst.changed('isPublished') && inst.isPublished === false) {
+          return seq.models.Perspective.findAll({
+            where: {
+              lensId: inst.id,
+            },
+            attributes: ['id', 'lensId', 'name'],
+          })
+          .then((perspectives) => {
+            if (perspectives && perspectives.length) {
+              throw new dbErrors.ValidationError({
+                message:
+                  `Cannot unpublish ${inst.name} because it is still in use ` +
+                  'by the following perspectives: ' +
+                  perspectives.map((p) => p.name),
+              });
+            }
+          });
+        }
+      }, // beforeUpdate
 
       /**
        * Makes sure isUrl/isEmail validations will handle empty strings
@@ -153,16 +206,31 @@ module.exports = function lens(seq, dataTypes) {
         redisCache.del(inst.name);
       },
 
+      /**
+       *  If installedBy is valid, reload to attach user object.
+       */
       afterCreate(inst /* , opts */) {
-        const lensObj = lensUtil.cleanAndCreateLensJson(inst);
-        redisCache.set(lensObj.id, JSON.stringify(lensObj));
-        redisCache.set(lensObj.name, JSON.stringify(lensObj));
+        if (inst.installedBy) {
+          const library = inst.library; // reload removes the library
+          inst.reload()
+          .then((reloadedInstance) => {
+            reloadedInstance.library = library;
+            setLensObjectInCache(reloadedInstance);
+          });
+        } else {
+          setLensObjectInCache(inst);
+        }
       },
 
+      /**
+       * Clear this record from the cache so that a fresh entry is populated
+       * from the API layer when the lens is fetched.
+       * Note: we don't just add inst to the cache from here because default
+       * scope excludes the "library" attribute, which obviously needs to be
+       * cached.
+       */
       afterUpdate(inst /* , opts */) {
-        // the inst object here does not include library field because of
-        // default scope. So, we delete the cache entry on update so that
-        // fresh entry is populated on API layer when lens is fetched.
+        // Clear the lens from the cache whether it's stored by id or by name.
         redisCache.del(inst.id);
         redisCache.del(inst.name);
       },

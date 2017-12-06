@@ -39,9 +39,9 @@ function doGet(req, res, next, props) {
   const fields = reqParams.fields ? reqParams.fields.value : null;
   const scopes = props.getScopes ? props.getScopes : [];
 
-  //only cache requests with no params
+  // only cache requests with no params
   if (props.cacheEnabled && !fields) {
-    let cacheKey = reqParams.key.value;
+    const cacheKey = reqParams.key.value;
 
     redisCache.get(cacheKey, (cacheErr, reply) => {
       if (cacheErr || !reply) {
@@ -76,10 +76,11 @@ function doGet(req, res, next, props) {
     }
 
     getPromise.then((o) => {
+      const returnObj = o.get ? o.get() : o;
+      u.sortArrayObjectsByField(props, returnObj);
       resultObj.dbTime = new Date() - resultObj.reqStartTime;
-
-      u.logAPI(req, resultObj, o);
-      res.status(httpStatus.OK).json(u.responsify(o, props, req.method));
+      u.logAPI(req, resultObj, returnObj);
+      res.status(httpStatus.OK).json(u.responsify(returnObj, props, req.method));
     })
     .catch((err) => u.handleError(next, err, props.modelName));
   }

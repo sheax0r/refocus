@@ -15,12 +15,18 @@
 
 const constants = require('../constants');
 const realTime = require('../../realtime/redisPublisher');
-
+const rtConstants = require('../../realtime/constants');
 const assoc = {};
 const roomEventNames = {
   add: 'refocus.internal.realtime.bot.namespace.initialize',
   upd: 'refocus.internal.realtime.room.settingsChanged',
   del: 'refocus.internal.realtime.room.remove',
+};
+const pubOpts = {
+  client: rtConstants.bot.client,
+  channel: rtConstants.bot.channel,
+  filterIndex: rtConstants.bot.roomFilterIndex,
+  filterField: 'name',
 };
 
 module.exports = function room(seq, dataTypes) {
@@ -49,6 +55,11 @@ module.exports = function room(seq, dataTypes) {
       defaultValue: false,
       comment: 'Determines if room is still active',
     },
+    bots: {
+      type: dataTypes.ARRAY(dataTypes.STRING),
+      allowNull: true,
+      comment: 'Bot names to be used in rooms',
+    },
   }, {
     classMethods: {
       getRoomAssociations() {
@@ -75,22 +86,40 @@ module.exports = function room(seq, dataTypes) {
       },
     },
     hooks: {
-      afterCreate: (instance) => {
+
+      /**
+       * Ensures room gets default values from roomType
+       *
+       * @param {Instance} instance - The instance being created
+       * @returns {Promise} which resolves to the instance
+       */
+      beforeCreate: (instance) => {
         const RoomType = seq.models.RoomType;
         return RoomType.findById(instance.type)
         .then((roomType) => {
           instance.settings = roomType.settings;
-          const changedKeys = Object.keys(instance._changed);
-          const ignoreAttributes = ['isDeleted'];
-          return realTime.publishObject(instance.toJSON(), roomEventNames.add, changedKeys,
-              ignoreAttributes);
+          instance.bots = roomType.bots;
         });
+      },
+
+      /**
+       * Publishes room updates to redis.
+       *
+       * @param {Instance} instance - The instance being created
+       * @returns {Promise} which resolves to the instance
+       */
+      afterCreate: (instance) => {
+        const changedKeys = Object.keys(instance._changed);
+        const ignoreAttributes = ['isDeleted'];
+        return realTime.publishObject(instance.toJSON(), roomEventNames.add,
+          changedKeys, ignoreAttributes, pubOpts);
       },
 
       afterUpdate(instance /* , opts */) {
         if (instance.changed('settings')) {
           if (instance.active) {
-            return realTime.publishObject(instance.toJSON(), roomEventNames.upd);
+            return realTime.publishObject(instance.toJSON(), roomEventNames.upd,
+              null, null, pubOpts);
           }
         }
 
@@ -99,7 +128,8 @@ module.exports = function room(seq, dataTypes) {
 
       afterDelete(instance /* , opts */) {
         if (instance.getDataValue('active')) {
-          return realTime.publishObject(instance.toJSON(), roomEventNames.del);
+          return realTime.publishObject(instance.toJSON(), roomEventNames.upd,
+              null, null, pubOpts);
         }
 
         return seq.Promise.resolve();

@@ -42,6 +42,9 @@ describe('tests/api/v1/generators/getWithCollector.js >', () => {
   let collector1 = { name: 'hello', version: '1.0.0' };
   let collector2 = { name: 'beautiful', version: '1.0.0' };
   let collector3 = { name: 'world', version: '1.0.0' };
+  const sortedNames = [collector1, collector2, collector3]
+    .map((col) => col.name)
+    .sort();
 
   before((done) => {
     Promise.all([
@@ -95,18 +98,16 @@ describe('tests/api/v1/generators/getWithCollector.js >', () => {
       expect(res.body).to.have.lengthOf(THREE);
       expect(firstGenerator.collectors.length).to.equal(THREE);
 
-      const collectorNames = firstGenerator.collectors.map((collector) => collector.name);
-      expect(collectorNames).to.contain(collector1.name);
-      expect(collectorNames).to.contain(collector2.name);
-      expect(collectorNames).to.contain(collector3.name);
-
+      const collectorNames = firstGenerator.collectors.map((collector) =>
+        collector.name);
+      expect(collectorNames).to.deep.equal(sortedNames);
       expect(firstGenerator.id).to.not.equal(undefined);
       expect(res.body[ONE].collectors.length).to.equal(ONE);
       expect(res.body[ONE].collectors[ZERO].name).to.equal(collector1.name);
       expect(res.body[ONE].id).to.not.equal(undefined);
       expect(res.body[TWO].collectors.length).to.equal(ZERO);
       expect(res.body[TWO].id).to.not.equal(undefined);
-      done();
+      return done();
     });
   });
 
@@ -120,11 +121,10 @@ describe('tests/api/v1/generators/getWithCollector.js >', () => {
       }
 
       expect(res.body.collectors.length).to.equal(THREE);
-      const collectorNames = res.body.collectors.map((collector) => collector.name);
-      expect(collectorNames).to.contain(collector1.name);
-      expect(collectorNames).to.contain(collector2.name);
-      expect(collectorNames).to.contain(collector3.name);
-      done();
+      const collectorNames = res.body.collectors.map((collector) =>
+        collector.name);
+      expect(collectorNames).to.deep.equal(sortedNames);
+      return done();
     });
   });
 });

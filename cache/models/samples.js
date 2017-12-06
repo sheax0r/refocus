@@ -10,15 +10,14 @@
  * cache/models/samples.js
  */
 'use strict'; // eslint-disable-line strict
-
+const logInvalidHmsetValues = require('../../utils/common')
+  .logInvalidHmsetValues;
 const helper = require('../../api/v1/helpers/nouns/samples');
 const u = require('../../api/v1/helpers/verbs/utils');
 const modelUtils = require('./utils');
 const sampleStore = require('../sampleStore');
 const redisClient = require('../redisCache').client.sampleStore;
 const constants = sampleStore.constants;
-const apiConstants = require('../../api/v1/constants');
-const defaults = require('../../config').api.defaults;
 const redisErrors = require('../redisErrors');
 const sampleUtils = require('../../db/helpers/sampleUtils');
 const dbConstants = require('../../db/constants');
@@ -95,10 +94,10 @@ function checkWritePermission(aspect, sample, userName, isBulk) {
  */
 function cleanAddAspectToSample(sampleObj, aspectObj) {
   let sampleRes = {};
-  sampleRes = sampleStore.arrayStringsToJson(
+  sampleRes = sampleStore.arrayObjsStringsToJson(
     sampleObj, constants.fieldsToStringify.sample
   );
-  const aspect = sampleStore.arrayStringsToJson(
+  const aspect = sampleStore.arrayObjsStringsToJson(
     aspectObj, constants.fieldsToStringify.aspect
   );
   sampleRes.aspect = aspect;
@@ -243,7 +242,7 @@ function upsertOneSample(sampleQueryBodyObj, isBulk, user) {
     sampleQueryBodyObj.subjectId = subject.id;
     sampleQueryBodyObj.aspectId = aspect.id;
 
-    aspectObj = sampleStore.arrayStringsToJson(
+    aspectObj = sampleStore.arrayObjsStringsToJson(
       aspect, constants.fieldsToStringify.aspect
     );
 
@@ -258,6 +257,7 @@ function upsertOneSample(sampleQueryBodyObj, isBulk, user) {
     if (sample) {
       // to avoid updating sample name
       delete sampleQueryBodyObj.name;
+      logInvalidHmsetValues(sampleKey, sampleQueryBodyObj);
       return redisClient.hmsetAsync(sampleKey, sampleQueryBodyObj);
     }
 
@@ -271,6 +271,7 @@ function upsertOneSample(sampleQueryBodyObj, isBulk, user) {
       sampleQueryBodyObj.provider = user.id;
       sampleQueryBodyObj.user = JSON.stringify({
         name: user.name, email: user.email,
+        profile: { name: user.profile.name },
       });
     }
 
@@ -280,6 +281,7 @@ function upsertOneSample(sampleQueryBodyObj, isBulk, user) {
 
     // add aspect name to subject set, add sample key to sample set,
     // create/update hash of sample
+    logInvalidHmsetValues(sampleKey, sampleQueryBodyObj);
     return redisClient.batch([
       ['sadd', subaspMapKey, aspectName],
       ['sadd', constants.indexKey.sample, sampleKey],
@@ -345,31 +347,27 @@ module.exports = {
         });
       }
 
-      aspect = sampleStore.arrayStringsToJson(
+      aspect = sampleStore.arrayObjsStringsToJson(
         aspObj, constants.fieldsToStringify.aspect
       );
 
       return checkWritePermission(aspect, sampObjToReturn, userName);
     })
+    /*
+     * Set up and execute the commands to:
+     * (1) delete the sample entry from the master list of sample index,
+     * (2) delete the aspect from the subAspMap,
+     * (3) delete the sample hash.
+     */
     .then(() => {
-
-      // delete sample entry from the master list of sample index
       cmds.push(redisOps.delKeyFromIndexCmd(sampleType, sampleName));
-
-      // delete the aspect from the subAspMap
       cmds.push(redisOps.delAspFromSubjSetCmd(subjAbsPath, aspName));
-
-      // delete the sample hash
       cmds.push(redisOps.delHashCmd(sampleType, sampleName));
-
       return redisOps.executeBatchCmds(cmds);
     })
     .then(() => redisOps.executeBatchCmds(cmds))
-    .then(() => {
-      // attach aspect and links to sample
-      const resSampAsp = cleanAddAspectToSample(sampObjToReturn, aspect);
-      return resSampAsp;
-    });
+    /* Attach aspect and links to sample. */
+    .then(() => cleanAddAspectToSample(sampObjToReturn, aspect));
   },
 
   /**
@@ -408,7 +406,7 @@ module.exports = {
         });
       }
 
-      aspectObj = sampleStore.arrayStringsToJson(
+      aspectObj = sampleStore.arrayObjsStringsToJson(
         aspObj, constants.fieldsToStringify.aspect
       );
 
@@ -483,14 +481,14 @@ module.exports = {
       return redisOps.getHashPromise(aspectType, aspectName);
     })
     .then((aspObj) => {
-      if (!aspObj) {
+      if (!aspObj || (aspObj.isPublished == 'false')) {
         throw new redisErrors.ResourceNotFoundError({
           explanation: 'Aspect not found.',
         });
       }
 
       modelUtils.cleanQueryBodyObj(reqBody, sampleFieldsArr);
-      aspectObj = sampleStore.arrayStringsToJson(
+      aspectObj = sampleStore.arrayObjsStringsToJson(
         aspObj, constants.fieldsToStringify.aspect
       );
 
@@ -626,7 +624,7 @@ module.exports = {
       return redisOps.executeBatchCmds(cmds);
     })
     .then(() => redisOps.getHashPromise(sampleType, sampleName))
-    .then((sampleObj) => sampleStore.arrayStringsToJson(
+    .then((sampleObj) => sampleStore.arrayObjsStringsToJson(
       sampleObj, constants.fieldsToStringify.sample));
   },
 
@@ -664,13 +662,13 @@ module.exports = {
       return redisOps.getHashPromise(aspectType, aspectName);
     })
     .then((aspObj) => {
-      if (!aspObj) {
+      if (!aspObj || (aspObj.isPublished == 'false')) {
         throw new redisErrors.ResourceNotFoundError({
           explanation: 'Aspect not found.',
         });
       }
 
-      aspectObj = sampleStore.arrayStringsToJson(
+      aspectObj = sampleStore.arrayObjsStringsToJson(
         aspObj, constants.fieldsToStringify.aspect
       );
 
@@ -787,43 +785,55 @@ module.exports = {
    * expr (other than name) to samples array, then we sort, then apply
    * limit/offset and finally field list filters. Then, attach aspect to sample
    * using map we created and add to response array.
+   *
    * @param  {Object} req - Request object
    * @param  {Object} res - Result object
-   * @param  {Object} logObject - Log object
    * @returns {Promise} - Resolves to a list of all samples objects
    */
-  findSamples(req, res, logObject) {
+  findSamples(req, res) {
     const opts = modelUtils.getOptionsFromReq(req.swagger.params, helper);
-    const response = [];
 
-    if (opts.limit || opts.offset) {
-      res.links({
-        prev: req.originalUrl,
-        next: fu.getNextUrl(req.originalUrl, opts.limit, opts.offset),
-      });
+    // Add prev/next response links.
+    res.links({
+      prev: req.originalUrl,
+      next: fu.getNextUrl(req.originalUrl, opts.limit, opts.offset),
+    });
+
+    /*
+     * Send a batch of redis commands to get all the samples sorted
+     * lexicographically by key (i.e. sample name). If there are no filters,
+     * pass the limit and offset through as part of the initial redis command.
+     * If there are filters, we need to load more records so we can return the
+     * right number of records in case some get filtered out later.
+     */
+    const sortArgs = [constants.indexKey.sample, 'alpha'];
+    const hasFilters = Object.keys(opts.filter).length > 0;
+    if (!hasFilters) {
+      sortArgs.push('LIMIT', opts.offset, opts.limit);
     }
 
-    // get all Samples sorted lexicographically
-    return redisClient.sortAsync(constants.indexKey.sample, 'alpha')
+    return redisClient.sortAsync(sortArgs)
+    /*
+     * Prefilter based on sample name, if specified. Then, for each of the
+     * remaining sample keys, derive the aspect name and key from the sample
+     * name, then add the commands to get the sample details and aspect details
+     * from their respective objects in the sample store and execute that
+     * batch of commands.
+     */
     .then((allSampKeys) => {
+      const filteredSampKeys = hasFilters ?
+        modelUtils.prefilterKeys(allSampKeys, opts) : allSampKeys;
       const commands = [];
-      const filteredSampKeys = modelUtils
-        .applyFiltersOnResourceKeys(allSampKeys, opts);
-
-      // add to commands
-      filteredSampKeys.forEach((sampKey) => {
-        const aspectName = sampKey.split('|')[ONE];
-        commands.push(['hgetall', sampKey]); // get sample
-        commands.push(
-          ['hgetall',
-           sampleStore.toKey(constants.objectType.aspect, aspectName),
-          ]);
+      filteredSampKeys.forEach((sKey) => {
+        const aName = sKey.split('|')[ONE];
+        const aKey = sampleStore.toKey(constants.objectType.aspect, aName);
+        commands.push(['hgetall', sKey]);
+        commands.push(['hgetall', aKey]);
       });
 
       return redisClient.batch(commands).execAsync();
     })
     .then((redisResponses) => { // samples and aspects
-      logObject.dbTime = new Date() - logObject.reqStartTime; // log db time
       const samples = [];
 
       // Eg: { samplename: asp object}, so that we can attach aspect later
@@ -833,29 +843,19 @@ module.exports = {
         sampAspectMap[redisResponses[num].name] = redisResponses[num + ONE];
       }
 
-      const filteredSamples = modelUtils.applyFiltersOnResourceObjs(samples, opts);
-      filteredSamples.forEach((sample) => {
-
-        const sampName = sample.name;
+      const filteredSamples =
+        modelUtils.applyFiltersOnResourceObjs(samples, opts);
+      return filteredSamples.map((sample) => {
         if (opts.attributes) { // delete sample fields, hence no return obj
           modelUtils.applyFieldListFilter(sample, opts.attributes);
         }
 
-        // attach aspect to sample
-        const resSampAsp = cleanAddAspectToSample(
-          sample, sampAspectMap[sampName]
-        );
-
-        // add api links
-        resSampAsp.apiLinks = u.getApiLinks(
-          resSampAsp.name, helper, req.method
-        );
-        response.push(resSampAsp); // add sample to response
+        const s = cleanAddAspectToSample(sample, sampAspectMap[sample.name]);
+        s.apiLinks = u.getApiLinks(s.name, helper, req.method);
+        return s;
       });
-
-      return response;
     });
-  },
+  }, // findSamples
 
   /**
    * Upsert sample in Redis.
